@@ -22,8 +22,12 @@ impl ContactCenter {
     pub fn remove_agent(&mut self, id: usize) {
         self.agents.retain(|agent| agent.id != id)
     }
-    
-    pub fn agents(&mut self) -> impl Iterator<Item = &mut Agent> {
+
+    pub fn agents(&self) -> impl Iterator<Item = &Agent> {
+        self.agents.iter()
+    }
+   
+    pub fn agents_mut(&mut self) -> impl Iterator<Item = &mut Agent> {
         self.agents.iter_mut()
     }
 }

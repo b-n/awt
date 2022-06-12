@@ -28,11 +28,21 @@
 
 mod contact_center;
 mod simulation;
+mod action;
+mod contact;
 
-pub use simulation::Simulation;
-pub use contact_center::ContactCenter;
+use simulation::Simulation;
+use contact_center::ContactCenter;
+use contact_center::Agent;
+use action::*;
+use contact::*;
 
 fn main() {
     let center = ContactCenter::new();
+    
+    let mut sim = Simulation::new(center.clone());
+
+    while sim.tick() {}
+
     println!("Hello, world!");
 }

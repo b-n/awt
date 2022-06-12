@@ -1,3 +1,5 @@
+use std::cmp::Ordering;
+
 // A contact has the following:
 // - Expected handle time (100% which can be buffed up or down by agent stats)
 // - Expected After handle time (100% which can be buffed up or down by agent stats)
@@ -10,6 +12,7 @@ pub enum ContactType {
     SocialMedia,
 }
 
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub enum ContactResult {
     ABANDONED,
     ANSWERED, 
@@ -17,6 +20,7 @@ pub enum ContactResult {
 
 /// start = the point the contact was answered
 /// end = start + contact time + after contact work
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub struct Contact {
     skill_preference: Option<usize>,
     expected_talk_time: usize,
@@ -56,3 +60,45 @@ impl Contact {
         }
     }
 }
+
+impl Ord for Contact {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.start.cmp(&other.start)
+    }
+}
+
+impl PartialOrd for Contact {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+pub struct ContactQueue {
+    queue: Vec<Contact>
+}
+
+impl ContactQueue {
+    pub fn new() -> Self {
+        Self { queue: vec![] }
+    }
+
+    pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut Contact> {
+        self.queue.iter_mut()
+            .filter(|contact| contact.result == None)
+    }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
