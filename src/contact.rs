@@ -1,4 +1,6 @@
 use std::cmp::Ordering;
+use std::collections::{HashMap, HashSet};
+use rand::{thread_rng, Rng};
 
 use crate::Agent;
 
@@ -81,7 +83,7 @@ impl Contact {
     }
 
     /// Answer this contact with the provided agent
-    pub fn answer(&mut self, ticks: usize, _: Agent) {
+    fn answer(&mut self, ticks: usize, _: Agent) {
         let start = self.start;
         if ticks < start {
             panic!("Contact cannot be picked up before being started");
@@ -106,20 +108,39 @@ impl PartialOrd for Contact {
 }
 
 pub struct ContactQueue {
-    queue: Vec<Contact>
+    inner: HashMap<usize, Contact>,
+    waiting: HashSet<usize>,
 }
 
 impl ContactQueue {
     pub fn new() -> Self {
-        Self { queue: vec![] }
+        Self {
+            inner: HashMap::new(),
+            waiting: HashSet::new()
+        }
     }
 
+    /// Generates a random new id which is gauranteed to not collide with another item in the queue
+    fn next_queue_id(&self) -> usize {
+        let mut rng = thread_rng();
+        let mut id = rng.gen();
+        while self.inner.contains_key(&id) {
+            id = rng.gen();
+        }
+        id
+    }
+
+    /// Push an owned contact onto this queue
     pub fn push(&mut self, contact: Contact) {
-        self.queue.push(contact);
+        let id = self.next_queue_id();
+        self.inner.insert(id, contact);
+        self.waiting.insert(id);
     }
 
+    /// Returns a mutable list of contacts which are currently waiting in the contact queue
     pub fn waiting(&mut self) -> impl Iterator<Item = &mut Contact> {
-        self.queue.iter_mut()
-            .filter(|contact| contact.is_waiting())
+        self.inner.iter_mut()
+            .filter(|(id, _)| self.waiting.contains(id))
+            .map(|(_, contact)| contact)
     }
 }
