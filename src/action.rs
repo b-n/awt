@@ -1,13 +1,15 @@
+
+use crate::Client;
+use std::sync::Arc;
+
 use std::cmp::Ordering;
 use std::collections::BinaryHeap;
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum Action {
-    // An action to release an agent back into the queue
-    ReleaseAgent(usize),
+    ReleaseServer(Arc<Server>),
 }
 
-/// A struct used to collate actions at a specific time (tick).
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 struct TimedAction {
     tick: usize,
@@ -26,7 +28,6 @@ impl PartialOrd for TimedAction {
     }
 }
 
-/// A wrapper around a BinaryHeap to store and push actions
 pub struct ActionQueue {
     queue: BinaryHeap<TimedAction>,
 }

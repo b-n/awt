@@ -1,4 +1,3 @@
-
 // The game: Optimize a call center
 //
 // We have a contact center, that call center has a people we hire to take calls
@@ -24,25 +23,36 @@
 // - Self service (e.g. reduce number of calls) - inverse log effectiveness
 // - Self service help (e.g reduce expected call time) - inverse log effectiveness
 // - Marketing to use different channels (that can be async and thus faster)
-//
+#![feature(let_chains)]
 
-mod contact_center;
+mod attribute;
+mod client;
+mod client_profile;
+mod server;
 mod simulation;
-mod action;
-mod contact;
 
-use simulation::Simulation;
-use contact_center::ContactCenter;
-use contact_center::Agent;
-use action::*;
-use contact::*;
+use attribute::Attribute;
+use client::Client;
+use client_profile::ClientProfile;
+use server::Server;
+use simulation::{Simulation, TICKS_PER_SECOND};
+
+use std::sync::Arc;
 
 fn main() {
-    let center = ContactCenter::new();
+    let mut sim = Simulation::default();
+    sim.add_server(Arc::new(Server::default()));
+
+    let mut profiles = vec![];
+    for _ in 0..100 {
+        profiles.push(Arc::new(ClientProfile::default()));
+    }
     
-    let mut sim = Simulation::new(center.clone());
+    for profile in profiles.iter() {
+        sim.add_client_profile(profile);
+    }
+
+    sim.enable();
 
     while sim.tick() {}
-
-    println!("Hello, world!");
 }

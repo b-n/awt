@@ -1,112 +1,140 @@
-//use contact::Contact;
-use crate::ContactCenter;
+use crate::{Client, ClientProfile, Server};
+use rand::seq::SliceRandom;
+use rand::{rngs::ThreadRng, thread_rng, Rng};
+use std::cell::RefCell;
+use std::sync::Arc;
 
-use crate::{Action, ActionQueue, Contact, ContactQueue};
+pub const TICKS_PER_SECOND: usize = 1000;
+pub const ONE_HOUR: usize = TICKS_PER_SECOND * 60 * 60;
 
-const TICKS_PER_SECOND: usize = 1000;
-const ONE_HOUR: usize = TICKS_PER_SECOND * 60 * 60;
-
-//tickSize = number of milliseconds
+#[derive(Debug, Clone)]
 pub struct Simulation {
-    run_until: usize,
-    ticks: usize,
-    tick_size: usize,
+    tick: usize,
+    tick_until: usize,
     running: bool,
-    contact_center: ContactCenter,
-    contacts: Vec<Contact>,
-    queued_actions: ActionQueue,
-    queued_contacts: ContactQueue,
-    available_agents: Vec<usize>,
+    client_profiles: Vec<Arc<ClientProfile>>,
+    servers: Vec<Arc<Server>>,
+    clients: Vec<Client>,
+    available_servers: Vec<Arc<Server>>,
+    queued_clients: Vec<RefCell<Client>>,
+    rng: ThreadRng,
 }
 
-// constructors
-impl Simulation {
-    pub fn new(contact_center: ContactCenter) -> Self {
-        let available_agents = contact_center
-            .agents()
-            .map(|agent| agent.id)
-            .collect::<Vec<usize>>();
-
-        Simulation {
-            run_until: ONE_HOUR,
-            ticks: 0,
-            tick_size: 1000,
-            running: true,
-            contact_center,
-            contacts: vec![],
-            queued_actions: ActionQueue::new(),
-            queued_contacts: ContactQueue::new(),
-            available_agents,
+impl Default for Simulation {
+    fn default() -> Self {
+        Self {
+            tick: 0,
+            tick_until: ONE_HOUR,
+            running: false,
+            client_profiles: vec![],
+            servers: vec![],
+            clients: vec![],
+            available_servers: vec![],
+            queued_clients: vec![],
+            rng: thread_rng(),
         }
     }
 }
 
-// impls
+// Structure and setup
 impl Simulation {
-    /// This is the main logic of the simulation
-    ///
-    /// Returns a true when the simulation is still ticking
-    ///
-    /// Actions:
-    ///   - Process tick related actions
-    ///     - Release the agents that have finished their last contact
-    ///   - Increment the tick on the existing waiting contacts
-    ///   - Roll the dice to see if a new contact should be added to the queue
-    ///   - Assign the waiting calls to available agents
-    ///
+    pub fn add_server(&mut self, server: Arc<Server>) {
+        self.servers.push(server)
+    }
+
+    pub fn add_client_profile(&mut self, client_profile: &Arc<ClientProfile>) {
+        self.client_profiles.push(client_profile.clone())
+    }
+
+    pub fn enable(&mut self) {
+        self.running = true;
+        self.generate_clients();
+        self.make_servers_available();
+    }
+
+    fn generate_clients(&mut self) {
+        self.clients = self
+            .client_profiles
+            .iter()
+            .enumerate()
+            .map(|(i, cp)| {
+                let mut clients = vec![];
+                for _ in 0..cp.quantity {
+                    let mut client = Client::from(cp);
+                    client.set_id(i);
+                    clients.push(client)
+                }
+                clients
+            })
+            .flatten()
+            .collect();
+
+        self.clients.shuffle(&mut self.rng);
+    }
+
+    fn make_servers_available(&mut self) {
+        self.available_servers = self.servers.clone();
+    }
+}
+
+// Simulation logic
+impl Simulation {
     pub fn tick(&mut self) -> bool {
         if !self.running {
             return false;
         }
 
-        self.process_actions();
-        // pop new call?
-        // allocate_agents
+        self.pop_client();
 
-        self.increment_tick()
+        // self.check_routing();
+
+        self.increment_tick(1);
+
+        self.tick_queued();
+
+        self.running
     }
 
-    fn process_actions(&mut self) {
-        while let Some(action) = self.queued_actions.pop(self.ticks) {
-            match action {
-                Action::ReleaseAgent(id) => { self.available_agents.push(id); }
-            }
+    // Returns whether a new client was popped or not
+    fn pop_client(&mut self) -> bool {
+        if self.clients.len() == 0 {
+            return false;
+        }
+
+        let roll = self.rng.gen_range(0..=(self.tick_until - self.tick));
+
+        if roll <= self.clients.len() && let Some(mut next) = self.clients.pop() {
+            next.enqueue(self.tick);
+            self.queued_clients.push(RefCell::new(next));
+            true
+        } else {
+            false
         }
     }
 
-    fn increment_tick(&mut self) -> bool {
-        self.ticks += self.tick_size;
-
-        if self.ticks >= self.run_until {
-            self.ticks = self.run_until;
-            self.running = false
+    fn increment_tick(&mut self, tick_size: usize) -> bool {
+        if self.tick % (5 * TICKS_PER_SECOND) == 0 {
+            //println!("Tick: {}", self.tick)
         }
-        true
-    }
-}
+        self.tick += tick_size;
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    
-    fn simulation() -> Simulation {
-        let contact_center = ContactCenter::new();
-        Simulation::new(contact_center)
+        if self.tick >= self.tick_until {
+            self.running = false;
+            self.tick = self.tick_until;
+        }
+
+        self.running
     }
 
-    #[test]
-    fn ticks() {
-        let mut sim = simulation();
-        assert_eq!(0, sim.ticks);
-        sim.tick();
-        assert_eq!(1000, sim.ticks);
-    }
-    
-    #[test]
-    fn ticks_until_completion() {
-        let mut sim = simulation();
-        assert_eq!(0, sim.ticks);
-        while sim.tick() {}
-        assert_eq!(ONE_HOUR, sim.ticks);
+    fn tick_queued(&mut self) {
+        self.queued_clients = self
+            .queued_clients
+            .iter_mut()
+            .filter(|c| {
+                let mut client = c.borrow_mut();
+                client.tick_wait(self.tick)
+            })
+            .map(|c| c.clone())
+            .collect();
     }
 }
