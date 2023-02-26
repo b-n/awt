@@ -52,7 +52,7 @@ impl Simulation {
         self.running = true;
         self.tick_size = 1000;
         self.generate_clients();
-        self.make_servers_available();
+        self.set_servers_available();
     }
 
     fn generate_clients(&mut self) {
@@ -75,7 +75,7 @@ impl Simulation {
         self.clients.shuffle(&mut self.rng);
     }
 
-    fn make_servers_available(&mut self) {
+    fn set_servers_available(&mut self) {
         self.available_servers = self.servers.clone();
     }
 }
