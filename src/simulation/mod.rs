@@ -2,34 +2,39 @@ mod attribute;
 mod client;
 mod client_profile;
 mod server;
+mod routing;
 
 pub use attribute::Attribute;
 pub use client_profile::ClientProfile;
-pub use server::Server;
+pub use server::{Server, EnqueuedServer};
 
 use client::Client;
+use routing::route_client;
 
 use rand::{rngs::ThreadRng, thread_rng, Rng};
 use std::cell::RefCell;
 use std::cmp::Reverse;
 use std::collections::BinaryHeap;
 use std::sync::Arc;
+use std::rc::Rc;
+pub use core::fmt::Debug;
 
 pub const TICKS_PER_SECOND: usize = 1000;
 pub const ONE_HOUR: usize = TICKS_PER_SECOND * 60 * 60;
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct Simulation {
     tick: usize,
     tick_size: usize,
     tick_until: usize,
     running: bool,
     client_profiles: Vec<Arc<ClientProfile>>,
+    clients: Vec<Rc<RefCell<Client>>>,
+    client_buffer: BinaryHeap<Reverse<Rc<RefCell<Client>>>>,
+    client_queue: Vec<Rc<RefCell<Client>>>,
     servers: Vec<Arc<Server>>,
-    clients: Vec<RefCell<Client>>,
-    client_buffer: BinaryHeap<Reverse<RefCell<Client>>>,
-    client_queue: BinaryHeap<Reverse<RefCell<Client>>>,
-    available_servers: Vec<Arc<Server>>,
+    server_buffer: BinaryHeap<Reverse<EnqueuedServer>>,
+    server_queue: Vec<Arc<Server>>,
     rng: ThreadRng,
 }
 
@@ -41,13 +46,28 @@ impl Default for Simulation {
             tick_until: ONE_HOUR,
             running: false,
             client_profiles: vec![],
-            servers: vec![],
             clients: vec![],
             client_buffer: BinaryHeap::new(),
-            client_queue: BinaryHeap::new(),
-            available_servers: vec![],
+            client_queue: vec![],
+            servers: vec![],
+            server_buffer: BinaryHeap::new(),
+            server_queue: vec![],
             rng: thread_rng(),
         }
+    }
+}
+
+impl Debug for Simulation {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+
+        let unanswered = self.clients.iter().filter(|c| c.borrow().is_unanswered()).count();
+        let answered = self.clients.iter().filter(|c| c.borrow().is_answered()).count();
+        let abandonend = self.clients.iter().filter(|c| c.borrow().is_abandoned()).count();
+
+        writeln!(f, "Simulation Tick: {}
+Unanswered {:>4}
+Answered   {:>4}
+Abandoned  {:>4}", self.tick, unanswered, answered, abandonend)
     }
 }
 
@@ -84,7 +104,7 @@ impl Simulation {
                     let start = self.rng.gen_range(0..=self.tick_until);
                     client.set_start(start);
 
-                    clients.push(RefCell::new(client));
+                    clients.push(Rc::new(RefCell::new(client)));
                 }
                 clients
             })
@@ -98,7 +118,7 @@ impl Simulation {
     }
 
     fn set_servers_available(&mut self) {
-        self.available_servers = self.servers.clone();
+        self.server_queue = self.servers.clone();
     }
 }
 
@@ -109,12 +129,16 @@ impl Simulation {
             return false;
         }
 
+        // release clients and servers
         self.enqueue_clients();
+        self.enqueue_servers();
 
-        // self.check_routing();
-
+        // assign the relevant servers
+        self.do_routing();
+        
+        // tick the main simulation
         self.increment_tick();
-
+        // tick all the queued clients
         self.tick_queued();
 
         self.running
@@ -123,11 +147,45 @@ impl Simulation {
     /// Find which clients haven't been added to the queue yet.
     fn enqueue_clients(&mut self) {
         while let Some(client) = self.client_buffer.peek() && (client.0.borrow()).start() <= self.tick {
-            let next_client = self.client_buffer.pop().expect("Client should have been popped");
+            let next_client = self.client_buffer.pop().expect("Client was peeked and should have been popped").0;
             
-            next_client.0.borrow_mut().enqueue(self.tick);
+            next_client.borrow_mut().enqueue(self.tick);
 
             self.client_queue.push(next_client);
+        }
+    }
+
+    fn enqueue_servers(&mut self) {
+        while let Some(server) = self.server_buffer.peek() && server.0.tick <= self.tick {
+            let next_server = self.server_buffer.pop().expect("Server was peeked and should have popped").0;
+
+            self.server_queue.push(next_server.server);
+        }
+    }
+
+    /// Routing is fairly straight forward to orchestrate.
+    ///
+    /// 1. Each client in the queue (gauranteed to be in order of ticks) is passed to the router
+    ///    along with a list of available servers.
+    /// 2. If the router returns a server, then that server is assigned to the client
+    /// 3. The server is pulled into a buffer for the expected number of ticks, and removed from
+    ///    the pool
+    fn do_routing(&mut self) {
+        // self.client_queue is generated in order from the client_buffer which will always be
+        // ordered.
+        for client in &self.client_queue {
+            if self.server_queue.is_empty() {
+                return;
+            }
+
+            if let Some(server) = route_client(client, &self.server_queue) {
+                let mut client = client.borrow_mut();
+
+                let release_tick = client.handle(self.tick, 300 * TICKS_PER_SECOND);
+
+                self.server_queue.retain(|s| s != &server);
+                self.server_buffer.push(Reverse(EnqueuedServer::new(server, release_tick)));
+            }
         }
     }
 
@@ -147,11 +205,11 @@ impl Simulation {
 
     fn tick_queued(&mut self) {
         for client in &self.client_queue {
-            let mut client = client.0.borrow_mut();
+            let mut client = client.borrow_mut();
             client.tick_wait(self.tick);
         }
 
         self.client_queue
-            .retain(|client| client.0.borrow().is_waiting());
+            .retain(|client| client.borrow().is_unanswered());
     }
 }

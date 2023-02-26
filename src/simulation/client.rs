@@ -20,7 +20,7 @@ pub struct Client {
     id: usize,
     required_attributes: Vec<Attribute>,
     start: usize,
-    abandon_at: usize,
+    abandon_tick: usize,
     established: Option<usize>,
     end: Option<usize>,
     status: Status,
@@ -54,7 +54,7 @@ impl Client {
 
     pub fn set_start(&mut self, tick: usize) {
         self.start = tick;
-        self.abandon_at = 20 * TICKS_PER_SECOND;
+        self.abandon_tick = self.start + 20 * TICKS_PER_SECOND;
     }
 
     pub fn start(&self) -> usize {
@@ -66,8 +66,16 @@ impl Client {
         self.required_attributes.push(attr.clone());
     }
 
-    pub fn is_waiting(&self) -> bool {
+    pub fn is_unanswered(&self) -> bool {
         Status::Unanswered == self.status
+    }
+
+    pub fn is_answered(&self) -> bool {
+        Status::Answered == self.status
+    }
+
+    pub fn is_abandoned(&self) -> bool {
+        Status::Abandoned == self.status
     }
 
     pub fn enqueue(&mut self, tick: usize) {
@@ -76,6 +84,10 @@ impl Client {
 
     // Returns whether the Client is continuing to wait
     pub fn tick_wait(&mut self, tick: usize) -> bool {
+        if !self.is_unanswered() {
+            return false;
+        }
+
         assert!(
             tick >= self.start,
             "Cannot tick in the past. started: {}, current: {}",
@@ -83,7 +95,7 @@ impl Client {
             tick
         );
 
-        if self.start + self.abandon_at < tick {
+        if self.abandon_tick < tick {
             println!("[CLIENT] {} abandoned at {}", self.id, tick);
             self.status = Status::Abandoned;
             self.end = Some(tick);
@@ -93,10 +105,13 @@ impl Client {
         }
     }
 
-    #[allow(dead_code)]
-    pub fn handle(&mut self, current_tick: usize, handling_time: usize) {
-        self.established = Some(current_tick);
-        self.end = Some(current_tick + handling_time);
+    pub fn handle(&mut self, tick: usize, handling_time: usize) -> usize {
+        println!("[CLIENT] {} handled at {}", self.id, tick);
+        self.established = Some(tick);
+        let end = tick + handling_time;
+        self.end = Some(end);
         self.status = Status::Answered;
+
+        end
     }
 }
