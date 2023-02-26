@@ -1,6 +1,6 @@
 use super::{Attribute, ClientProfile, TICKS_PER_SECOND};
-use std::sync::Arc;
 use std::cmp::Ordering;
+use std::sync::Arc;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Status {
@@ -76,8 +76,12 @@ impl Client {
 
     // Returns whether the Client is continuing to wait
     pub fn tick_wait(&mut self, tick: usize) -> bool {
-        assert!(tick >= self.start, "Cannot tick in the past. started: {}, current: {}",
-                self.start, tick);
+        assert!(
+            tick >= self.start,
+            "Cannot tick in the past. started: {}, current: {}",
+            self.start,
+            tick
+        );
 
         if self.start + self.abandon_at < tick {
             println!("[CLIENT] {} abandoned at {}", self.id, tick);

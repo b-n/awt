@@ -4,9 +4,10 @@ mod client_profile;
 mod server;
 
 pub use attribute::Attribute;
-pub use client::Client;
 pub use client_profile::ClientProfile;
 pub use server::Server;
+
+use client::Client;
 
 use rand::{rngs::ThreadRng, thread_rng, Rng};
 use std::cell::RefCell;
