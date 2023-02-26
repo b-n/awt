@@ -53,11 +53,11 @@ impl Default for Simulation {
 // Structure and setup
 impl Simulation {
     pub fn add_server(&mut self, server: Arc<Server>) {
-        self.servers.push(server)
+        self.servers.push(server);
     }
 
     pub fn add_client_profile(&mut self, client_profile: &Arc<ClientProfile>) {
-        self.client_profiles.push(client_profile.clone())
+        self.client_profiles.push(client_profile.clone());
     }
 
     pub fn enable(&mut self) {
@@ -83,7 +83,7 @@ impl Simulation {
                     let start = self.rng.gen_range(0..=self.tick_until);
                     client.set_start(start);
 
-                    clients.push(RefCell::new(client))
+                    clients.push(RefCell::new(client));
                 }
                 clients
             })
@@ -91,8 +91,8 @@ impl Simulation {
     }
 
     fn generate_client_buffer(&mut self) {
-        for client in self.clients.iter() {
-            self.client_buffer.push(Reverse(client.clone()))
+        for client in &self.clients {
+            self.client_buffer.push(Reverse(client.clone()));
         }
     }
 
@@ -126,7 +126,7 @@ impl Simulation {
             
             next_client.0.borrow_mut().enqueue(self.tick);
 
-            self.client_queue.push(next_client)
+            self.client_queue.push(next_client);
         }
     }
 
@@ -145,7 +145,7 @@ impl Simulation {
     }
 
     fn tick_queued(&mut self) {
-        for client in self.client_queue.iter() {
+        for client in &self.client_queue {
             let mut client = client.0.borrow_mut();
             client.tick_wait(self.tick);
         }

@@ -40,9 +40,10 @@ impl PartialOrd for Client {
 
 impl From<&Arc<ClientProfile>> for Client {
     fn from(client_profile: &Arc<ClientProfile>) -> Self {
-        let mut client = Self::default();
-        client.required_attributes = client_profile.required_attributes.clone();
-        client
+        Self {
+            required_attributes: client_profile.required_attributes.clone(),
+            ..Self::default()
+        }
     }
 }
 
@@ -60,6 +61,7 @@ impl Client {
         self.start
     }
 
+    #[allow(dead_code)]
     pub fn add_required_attribute(&mut self, attr: &Attribute) {
         self.required_attributes.push(attr.clone());
     }
@@ -74,12 +76,8 @@ impl Client {
 
     // Returns whether the Client is continuing to wait
     pub fn tick_wait(&mut self, tick: usize) -> bool {
-        if tick < self.start {
-            panic!(
-                "Cannot tick in the past. started: {}, current: {}",
-                self.start, tick
-            );
-        }
+        assert!(tick >= self.start, "Cannot tick in the past. started: {}, current: {}",
+                self.start, tick);
 
         if self.start + self.abandon_at < tick {
             println!("[CLIENT] {} abandoned at {}", self.id, tick);
@@ -91,7 +89,7 @@ impl Client {
         }
     }
 
-    // Handle this client
+    #[allow(dead_code)]
     pub fn handle(&mut self, current_tick: usize, handling_time: usize) {
         self.established = Some(current_tick);
         self.end = Some(current_tick + handling_time);

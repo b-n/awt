@@ -23,6 +23,21 @@
 // - Self service (e.g. reduce number of calls) - inverse log effectiveness
 // - Self service help (e.g reduce expected call time) - inverse log effectiveness
 // - Marketing to use different channels (that can be async and thus faster)
+
+// Setup Clippy
+#![warn(clippy::all)]
+#![warn(clippy::pedantic)]
+#![warn(clippy::cargo)]
+#![allow(unknown_lints)]
+#![warn(missing_debug_implementation)]
+#![warn(missing_copy_implementation)]
+#![warn(rust_2018_idioms)]
+#![warn(rust_2021_compatibility)]
+#![warn(trivial_casts, trivial_numeric_casts)]
+#![warn(unused_qualifications)]
+#![warn(variant_size_difference)]
+
+// Experimental features
 #![feature(let_chains)]
 #![feature(binary_heap_retain)]
 
@@ -41,7 +56,7 @@ fn main() {
         profiles.push(Arc::new(ClientProfile::default()));
     }
 
-    for profile in profiles.iter() {
+    for profile in &profiles {
         sim.add_client_profile(profile);
     }
 

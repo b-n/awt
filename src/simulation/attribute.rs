@@ -5,6 +5,7 @@ pub struct Attribute {
 }
 
 impl Attribute {
+    #[allow(dead_code)]
     pub fn new(name: &str, level: Option<usize>) -> Self {
         Self { name: name.to_string(), level }
     }
