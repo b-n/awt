@@ -1,5 +1,6 @@
 use super::{Attribute, ClientProfile, TICKS_PER_SECOND};
 use std::sync::Arc;
+use std::cmp::Ordering;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Status {
@@ -19,10 +20,22 @@ pub struct Client {
     id: usize,
     required_attributes: Vec<Attribute>,
     start: usize,
-    max_wait_time: usize,
+    abandon_at: usize,
     established: Option<usize>,
     end: Option<usize>,
     status: Status,
+}
+
+impl Ord for Client {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.start.cmp(&other.start)
+    }
+}
+
+impl PartialOrd for Client {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
 }
 
 impl From<&Arc<ClientProfile>> for Client {
@@ -38,6 +51,15 @@ impl Client {
         self.id = id;
     }
 
+    pub fn set_start(&mut self, tick: usize) {
+        self.start = tick;
+        self.abandon_at = 20 * TICKS_PER_SECOND;
+    }
+
+    pub fn start(&self) -> usize {
+        self.start
+    }
+
     pub fn add_required_attribute(&mut self, attr: &Attribute) {
         self.required_attributes.push(attr.clone());
     }
@@ -47,9 +69,6 @@ impl Client {
     }
 
     pub fn enqueue(&mut self, tick: usize) {
-        self.status = Status::Unanswered;
-        self.start = tick;
-        self.max_wait_time = 20 * TICKS_PER_SECOND;
         println!("[CLIENT] {} enqueued at {}", self.id, tick);
     }
 
@@ -62,7 +81,7 @@ impl Client {
             );
         }
 
-        if self.start + self.max_wait_time < tick {
+        if self.start + self.abandon_at < tick {
             println!("[CLIENT] {} abandoned at {}", self.id, tick);
             self.status = Status::Abandoned;
             self.end = Some(tick);

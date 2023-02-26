@@ -24,6 +24,7 @@
 // - Self service help (e.g reduce expected call time) - inverse log effectiveness
 // - Marketing to use different channels (that can be async and thus faster)
 #![feature(let_chains)]
+#![feature(binary_heap_retain)]
 
 mod simulation;
 

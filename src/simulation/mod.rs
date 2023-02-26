@@ -8,9 +8,10 @@ pub use client::Client;
 pub use client_profile::ClientProfile;
 pub use server::Server;
 
-use rand::seq::SliceRandom;
 use rand::{rngs::ThreadRng, thread_rng, Rng};
 use std::cell::RefCell;
+use std::cmp::Reverse;
+use std::collections::BinaryHeap;
 use std::sync::Arc;
 
 pub const TICKS_PER_SECOND: usize = 1000;
@@ -24,9 +25,10 @@ pub struct Simulation {
     running: bool,
     client_profiles: Vec<Arc<ClientProfile>>,
     servers: Vec<Arc<Server>>,
-    clients: Vec<Client>,
+    clients: Vec<RefCell<Client>>,
+    client_buffer: BinaryHeap<Reverse<RefCell<Client>>>,
+    client_queue: BinaryHeap<Reverse<RefCell<Client>>>,
     available_servers: Vec<Arc<Server>>,
-    queued_clients: Vec<RefCell<Client>>,
     rng: ThreadRng,
 }
 
@@ -40,8 +42,9 @@ impl Default for Simulation {
             client_profiles: vec![],
             servers: vec![],
             clients: vec![],
+            client_buffer: BinaryHeap::new(),
+            client_queue: BinaryHeap::new(),
             available_servers: vec![],
-            queued_clients: vec![],
             rng: thread_rng(),
         }
     }
@@ -59,8 +62,10 @@ impl Simulation {
 
     pub fn enable(&mut self) {
         self.running = true;
-        self.tick_size = 1000;
+        self.tick_size = 1;
         self.generate_clients();
+        self.generate_client_buffer();
+
         self.set_servers_available();
     }
 
@@ -69,19 +74,26 @@ impl Simulation {
             .client_profiles
             .iter()
             .enumerate()
-            .map(|(i, cp)| {
+            .flat_map(|(i, cp)| {
                 let mut clients = vec![];
                 for _ in 0..cp.quantity {
                     let mut client = Client::from(cp);
                     client.set_id(i);
-                    clients.push(client)
+
+                    let start = self.rng.gen_range(0..=self.tick_until);
+                    client.set_start(start);
+
+                    clients.push(RefCell::new(client))
                 }
                 clients
             })
-            .flatten()
             .collect();
+    }
 
-        self.clients.shuffle(&mut self.rng);
+    fn generate_client_buffer(&mut self) {
+        for client in self.clients.iter() {
+            self.client_buffer.push(Reverse(client.clone()))
+        }
     }
 
     fn set_servers_available(&mut self) {
@@ -96,7 +108,7 @@ impl Simulation {
             return false;
         }
 
-        self.roll_client();
+        self.enqueue_clients();
 
         // self.check_routing();
 
@@ -107,25 +119,14 @@ impl Simulation {
         self.running
     }
 
-    /// Roll to see whether a new client should be generated from one of the
-    /// client_profiles.
-    ///
-    /// Returns whether a new client was enqueued or not
-    fn roll_client(&mut self) -> bool {
-        if self.clients.len() == 0 {
-            return false;
-        }
+    /// Find which clients haven't been added to the queue yet.
+    fn enqueue_clients(&mut self) {
+        while let Some(client) = self.client_buffer.peek() && (client.0.borrow()).start() <= self.tick {
+            let next_client = self.client_buffer.pop().expect("Client should have been popped");
+            
+            next_client.0.borrow_mut().enqueue(self.tick);
 
-        let remaining_rolls = (self.tick_until - self.tick) / self.tick_size;
-
-        let roll = self.rng.gen_range(0..=remaining_rolls);
-
-        if roll <= self.clients.len() && let Some(mut next) = self.clients.pop() {
-            next.enqueue(self.tick);
-            self.queued_clients.push(RefCell::new(next));
-            true
-        } else {
-            false
+            self.client_queue.push(next_client)
         }
     }
 
@@ -144,14 +145,12 @@ impl Simulation {
     }
 
     fn tick_queued(&mut self) {
-        self.queued_clients = self
-            .queued_clients
-            .iter_mut()
-            .filter(|c| {
-                let mut client = c.borrow_mut();
-                client.tick_wait(self.tick)
-            })
-            .map(|c| c.clone())
-            .collect();
+        for client in self.client_queue.iter() {
+            let mut client = client.0.borrow_mut();
+            client.tick_wait(self.tick);
+        }
+
+        self.client_queue
+            .retain(|client| client.0.borrow().is_waiting());
     }
 }
