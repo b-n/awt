@@ -1,4 +1,13 @@
-use crate::{Client, ClientProfile, Server};
+mod attribute;
+mod client;
+mod client_profile;
+mod server;
+
+pub use attribute::Attribute;
+pub use client::Client;
+pub use client_profile::ClientProfile;
+pub use server::Server;
+
 use rand::seq::SliceRandom;
 use rand::{rngs::ThreadRng, thread_rng, Rng};
 use std::cell::RefCell;
@@ -100,7 +109,7 @@ impl Simulation {
 
     /// Roll to see whether a new client should be generated from one of the
     /// client_profiles.
-    /// 
+    ///
     /// Returns whether a new client was enqueued or not
     fn roll_client(&mut self) -> bool {
         if self.clients.len() == 0 {
@@ -108,7 +117,7 @@ impl Simulation {
         }
 
         let remaining_rolls = (self.tick_until - self.tick) / self.tick_size;
-        
+
         let roll = self.rng.gen_range(0..=remaining_rolls);
 
         if roll <= self.clients.len() && let Some(mut next) = self.clients.pop() {

@@ -25,17 +25,9 @@
 // - Marketing to use different channels (that can be async and thus faster)
 #![feature(let_chains)]
 
-mod attribute;
-mod client;
-mod client_profile;
-mod server;
 mod simulation;
 
-use attribute::Attribute;
-use client::Client;
-use client_profile::ClientProfile;
-use server::Server;
-use simulation::{Simulation, TICKS_PER_SECOND};
+use simulation::{ClientProfile, Server, Simulation};
 
 use std::sync::Arc;
 
@@ -47,7 +39,7 @@ fn main() {
     for _ in 0..100 {
         profiles.push(Arc::new(ClientProfile::default()));
     }
-    
+
     for profile in profiles.iter() {
         sim.add_client_profile(profile);
     }

@@ -1,7 +1,5 @@
-use crate::Attribute;
-use crate::ClientProfile;
+use super::{Attribute, ClientProfile, TICKS_PER_SECOND};
 use std::sync::Arc;
-use crate::{TICKS_PER_SECOND};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Status {
@@ -27,10 +25,10 @@ pub struct Client {
     status: Status,
 }
 
-impl From<&Arc<ClientProfile>> for Client { 
+impl From<&Arc<ClientProfile>> for Client {
     fn from(client_profile: &Arc<ClientProfile>) -> Self {
         let mut client = Self::default();
-        client.required_attributes = client_profile.required_attributes.clone(); 
+        client.required_attributes = client_profile.required_attributes.clone();
         client
     }
 }
@@ -58,7 +56,10 @@ impl Client {
     // Returns whether the Client is continuing to wait
     pub fn tick_wait(&mut self, tick: usize) -> bool {
         if tick < self.start {
-            panic!("Cannot tick in the past. started: {}, current: {}", self.start, tick);
+            panic!(
+                "Cannot tick in the past. started: {}, current: {}",
+                self.start, tick
+            );
         }
 
         if self.start + self.max_wait_time < tick {
@@ -68,7 +69,7 @@ impl Client {
             false
         } else {
             true
-        } 
+        }
     }
 
     // Handle this client

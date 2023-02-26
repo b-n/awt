@@ -1,4 +1,4 @@
-use crate::{Attribute, TICKS_PER_SECOND};
+use super::{Attribute, TICKS_PER_SECOND};
 
 #[derive(Debug, Clone)]
 pub struct ClientProfile {
@@ -16,8 +16,7 @@ impl Default for ClientProfile {
             quantity: 1,
             base_handle_time: 0,
             base_clean_up_time: 0,
-            base_abandon_tick: TICKS_PER_SECOND * 30, 
+            base_abandon_tick: TICKS_PER_SECOND * 30,
         }
     }
 }
-
