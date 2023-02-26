@@ -10,6 +10,7 @@ pub const ONE_HOUR: usize = TICKS_PER_SECOND * 60 * 60;
 #[derive(Debug, Clone)]
 pub struct Simulation {
     tick: usize,
+    tick_size: usize,
     tick_until: usize,
     running: bool,
     client_profiles: Vec<Arc<ClientProfile>>,
@@ -24,6 +25,7 @@ impl Default for Simulation {
     fn default() -> Self {
         Self {
             tick: 0,
+            tick_size: 1,
             tick_until: ONE_HOUR,
             running: false,
             client_profiles: vec![],
@@ -48,6 +50,7 @@ impl Simulation {
 
     pub fn enable(&mut self) {
         self.running = true;
+        self.tick_size = 1000;
         self.generate_clients();
         self.make_servers_available();
     }
@@ -84,24 +87,29 @@ impl Simulation {
             return false;
         }
 
-        self.pop_client();
+        self.roll_client();
 
         // self.check_routing();
 
-        self.increment_tick(1);
+        self.increment_tick();
 
         self.tick_queued();
 
         self.running
     }
 
-    // Returns whether a new client was popped or not
-    fn pop_client(&mut self) -> bool {
+    /// Roll to see whether a new client should be generated from one of the
+    /// client_profiles.
+    /// 
+    /// Returns whether a new client was enqueued or not
+    fn roll_client(&mut self) -> bool {
         if self.clients.len() == 0 {
             return false;
         }
 
-        let roll = self.rng.gen_range(0..=(self.tick_until - self.tick));
+        let remaining_rolls = (self.tick_until - self.tick) / self.tick_size;
+        
+        let roll = self.rng.gen_range(0..=remaining_rolls);
 
         if roll <= self.clients.len() && let Some(mut next) = self.clients.pop() {
             next.enqueue(self.tick);
@@ -112,11 +120,11 @@ impl Simulation {
         }
     }
 
-    fn increment_tick(&mut self, tick_size: usize) -> bool {
+    fn increment_tick(&mut self) -> bool {
         if self.tick % (5 * TICKS_PER_SECOND) == 0 {
             //println!("Tick: {}", self.tick)
         }
-        self.tick += tick_size;
+        self.tick += self.tick_size;
 
         if self.tick >= self.tick_until {
             self.running = false;
