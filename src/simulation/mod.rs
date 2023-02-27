@@ -190,10 +190,16 @@ impl Simulation {
     }
 
     fn increment_tick(&mut self) -> bool {
-        if self.tick % (5 * TICKS_PER_SECOND) == 0 {
-            //println!("Tick: {}", self.tick)
-        }
-        self.tick += self.tick_size;
+        let client_buffer_head = self.client_buffer.peek().map(|c| c.0.borrow().start());
+        let server_buffer_head = self.server_buffer.peek().map(|c| c.0.tick);
+
+        let next_tick = match (client_buffer_head, server_buffer_head) {
+            (Some(t), Some(u)) if t >= u => t,
+            (Some(_) | None, Some(t)) | (Some(t), None) => t,
+            (None, None) => self.tick_until
+        };
+
+        self.tick = next_tick;
 
         if self.tick >= self.tick_until {
             self.running = false;
