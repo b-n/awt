@@ -46,20 +46,38 @@ use simulation::{ClientProfile, Server, Simulation};
 
 use std::sync::Arc;
 
-fn main() {
-    let mut sim = Simulation::default();
-    sim.add_server(Arc::new(Server::default()));
+use std::thread;
 
+const N_THREADS: usize = 8;
+
+fn main() {
+    let server = Arc::new(Server::default());
     let mut profiles = vec![];
     for _ in 0..100 {
         profiles.push(Arc::new(ClientProfile::default()));
     }
 
-    for profile in &profiles {
-        sim.add_client_profile(profile);
+    let mut children = vec![];
+    for i in 0..N_THREADS {
+        let server = server.clone();
+        let profiles = profiles.clone();
+        children.push(thread::spawn(move || {
+            let mut sim = Simulation::default();
+            sim.add_server(server);
+
+            for profile in &profiles {
+                sim.add_client_profile(profile);
+            }
+
+            sim.enable();
+
+            while sim.tick() {}
+
+            println!("Thread {i}\n{sim:?}");
+        }));
     }
 
-    sim.enable();
-
-    while sim.tick() {}
+    for child in children {
+        let _ = child.join();
+    }
 }
