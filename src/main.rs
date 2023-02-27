@@ -48,7 +48,7 @@ use std::sync::Arc;
 
 use std::thread;
 
-const N_THREADS: usize = 8;
+const N_THREADS: usize = 10_000;
 
 fn main() {
     let server = Arc::new(Server::default());
