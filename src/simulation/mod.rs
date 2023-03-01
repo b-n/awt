@@ -146,9 +146,18 @@ impl Simulation {
 
     /// Find which clients haven't been added to the queue yet.
     fn enqueue_clients(&mut self) {
-        while let Some(client) = self.client_buffer.peek() && (client.0.borrow()).start() <= self.tick {
-            let next_client = self.client_buffer.pop().expect("Client was peeked and should have been popped").0;
-            
+        while self
+            .client_buffer
+            .peek()
+            .map_or(self.tick_until, |c| c.0.borrow().start())
+            <= self.tick
+        {
+            let next_client = self
+                .client_buffer
+                .pop()
+                .expect("Client was peeked and should have been popped")
+                .0;
+
             next_client.borrow_mut().enqueue(self.tick);
 
             self.client_queue.push(next_client);
@@ -156,8 +165,17 @@ impl Simulation {
     }
 
     fn enqueue_servers(&mut self) {
-        while let Some(server) = self.server_buffer.peek() && server.0.tick <= self.tick {
-            let next_server = self.server_buffer.pop().expect("Server was peeked and should have popped").0;
+        while self
+            .server_buffer
+            .peek()
+            .map_or(self.tick_until, |s| s.0.tick)
+            <= self.tick
+        {
+            let next_server = self
+                .server_buffer
+                .pop()
+                .expect("Server was peeked and should have popped")
+                .0;
 
             self.server_queue.push(next_server.server);
         }
