@@ -1,23 +1,23 @@
 mod attribute;
 mod client;
 mod client_profile;
-mod server;
 mod routing;
+mod server;
 
 pub use attribute::Attribute;
 pub use client_profile::ClientProfile;
-pub use server::{Server, EnqueuedServer};
+pub use server::{EnqueuedServer, Server};
 
 use client::Client;
 use routing::route_client;
 
+pub use core::fmt::Debug;
 use rand::{rngs::ThreadRng, thread_rng, Rng};
 use std::cell::RefCell;
 use std::cmp::Reverse;
 use std::collections::BinaryHeap;
-use std::sync::Arc;
 use std::rc::Rc;
-pub use core::fmt::Debug;
+use std::sync::Arc;
 
 pub const TICKS_PER_SECOND: usize = 1000;
 pub const ONE_HOUR: usize = TICKS_PER_SECOND * 60 * 60;
@@ -59,15 +59,30 @@ impl Default for Simulation {
 
 impl Debug for Simulation {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let unanswered = self
+            .clients
+            .iter()
+            .filter(|c| c.borrow().is_unanswered())
+            .count();
+        let answered = self
+            .clients
+            .iter()
+            .filter(|c| c.borrow().is_answered())
+            .count();
+        let abandonend = self
+            .clients
+            .iter()
+            .filter(|c| c.borrow().is_abandoned())
+            .count();
 
-        let unanswered = self.clients.iter().filter(|c| c.borrow().is_unanswered()).count();
-        let answered = self.clients.iter().filter(|c| c.borrow().is_answered()).count();
-        let abandonend = self.clients.iter().filter(|c| c.borrow().is_abandoned()).count();
-
-        writeln!(f, "Simulation Tick: {}
+        writeln!(
+            f,
+            "Simulation Tick: {}
 Unanswered {:>4}
 Answered   {:>4}
-Abandoned  {:>4}", self.tick, unanswered, answered, abandonend)
+Abandoned  {:>4}",
+            self.tick, unanswered, answered, abandonend
+        )
     }
 }
 
@@ -135,7 +150,7 @@ impl Simulation {
 
         // assign the relevant servers
         self.do_routing();
-        
+
         // tick the main simulation
         self.increment_tick();
         // tick all the queued clients
@@ -202,7 +217,8 @@ impl Simulation {
                 let release_tick = client.handle(self.tick, 300 * TICKS_PER_SECOND);
 
                 self.server_queue.retain(|s| s != &server);
-                self.server_buffer.push(Reverse(EnqueuedServer::new(server, release_tick)));
+                self.server_buffer
+                    .push(Reverse(EnqueuedServer::new(server, release_tick)));
             }
         }
     }
