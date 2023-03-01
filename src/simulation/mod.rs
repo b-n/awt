@@ -9,13 +9,13 @@ pub use client_profile::ClientProfile;
 pub use server::{EnqueuedServer, Server};
 
 use client::Client;
-use routing::route_client;
+use routing::{route_clients, ClientRoutingData};
 
 pub use core::fmt::Debug;
 use rand::{rngs::ThreadRng, thread_rng, Rng};
 use std::cell::RefCell;
 use std::cmp::Reverse;
-use std::collections::BinaryHeap;
+use std::collections::{BinaryHeap, HashMap};
 use std::rc::Rc;
 use std::sync::Arc;
 
@@ -31,10 +31,10 @@ pub struct Simulation {
     client_profiles: Vec<Arc<ClientProfile>>,
     clients: Vec<Rc<RefCell<Client>>>,
     client_buffer: BinaryHeap<Reverse<Rc<RefCell<Client>>>>,
-    client_queue: Vec<Rc<RefCell<Client>>>,
+    client_queue: HashMap<usize, Rc<RefCell<Client>>>,
     servers: Vec<Arc<Server>>,
     server_buffer: BinaryHeap<Reverse<EnqueuedServer>>,
-    server_queue: Vec<Arc<Server>>,
+    server_queue: HashMap<usize, Arc<Server>>,
     rng: ThreadRng,
 }
 
@@ -48,10 +48,10 @@ impl Default for Simulation {
             client_profiles: vec![],
             clients: vec![],
             client_buffer: BinaryHeap::new(),
-            client_queue: vec![],
+            client_queue: HashMap::new(),
             servers: vec![],
             server_buffer: BinaryHeap::new(),
-            server_queue: vec![],
+            server_queue: HashMap::new(),
             rng: thread_rng(),
         }
     }
@@ -133,7 +133,7 @@ impl Simulation {
     }
 
     fn set_servers_available(&mut self) {
-        self.server_queue = self.servers.clone();
+        self.server_queue = self.servers.iter().map(|s| (s.id(), s.clone())).collect();
     }
 }
 
@@ -173,9 +173,10 @@ impl Simulation {
                 .expect("Client was peeked and should have been popped")
                 .0;
 
-            next_client.borrow_mut().enqueue(self.tick);
+            let mut client = next_client.borrow_mut();
+            client.enqueue(self.tick);
 
-            self.client_queue.push(next_client);
+            self.client_queue.insert(client.id(), next_client.clone());
         }
     }
 
@@ -192,7 +193,8 @@ impl Simulation {
                 .expect("Server was peeked and should have popped")
                 .0;
 
-            self.server_queue.push(next_server.server);
+            self.server_queue
+                .insert(next_server.server.id(), next_server.server);
         }
     }
 
@@ -204,22 +206,33 @@ impl Simulation {
     /// 3. The server is pulled into a buffer for the expected number of ticks, and removed from
     ///    the pool
     fn do_routing(&mut self) {
-        // self.client_queue is generated in order from the client_buffer which will always be
-        // ordered.
-        for client in &self.client_queue {
-            if self.server_queue.is_empty() {
-                return;
-            }
+        // TODO: Cache this data, it doesn't change cycle to cycle
+        let client_data: Vec<ClientRoutingData> = self
+            .client_queue
+            .values()
+            .map(ClientRoutingData::from)
+            .collect();
 
-            if let Some(server) = route_client(client, &self.server_queue) {
-                let mut client = client.borrow_mut();
+        for (client_id, server_id) in
+            route_clients(&client_data, self.server_queue.values().collect())
+        {
+            // TODO: handle client not in queue
+            let mut client = self
+                .client_queue
+                .get(&client_id)
+                .expect("Client Id does not exist")
+                .borrow_mut();
 
-                let release_tick = client.handle(self.tick, 300 * TICKS_PER_SECOND);
+            let release_tick = client.handle(self.tick, 300 * TICKS_PER_SECOND);
 
-                self.server_queue.retain(|s| s != &server);
-                self.server_buffer
-                    .push(Reverse(EnqueuedServer::new(server, release_tick)));
-            }
+            // TODO: Safely chceck that the server_queue has this server_id
+            let server = self
+                .server_queue
+                .remove(&server_id)
+                .expect("Server Id should have been queued");
+
+            self.server_buffer
+                .push(Reverse(EnqueuedServer::new(server, release_tick)));
         }
     }
 
@@ -250,12 +263,10 @@ impl Simulation {
     }
 
     fn tick_queued(&mut self) {
-        for client in &self.client_queue {
+        self.client_queue.retain(|_, client| {
             let mut client = client.borrow_mut();
             client.tick_wait(self.tick);
-        }
-
-        self.client_queue
-            .retain(|client| client.borrow().is_unanswered());
+            client.is_unanswered()
+        });
     }
 }

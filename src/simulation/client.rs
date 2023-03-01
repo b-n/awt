@@ -52,11 +52,17 @@ impl Client {
         self.id = id;
     }
 
+    #[inline]
+    pub fn id(&self) -> usize {
+        self.id
+    }
+
     pub fn set_start(&mut self, tick: usize) {
         self.start = tick;
         self.abandon_tick = self.start + 20 * TICKS_PER_SECOND;
     }
 
+    #[inline]
     pub fn start(&self) -> usize {
         self.start
     }
@@ -66,14 +72,22 @@ impl Client {
         self.required_attributes.push(attr.clone());
     }
 
+    #[inline]
+    pub fn required_attributes(&self) -> &Vec<Attribute> {
+        &self.required_attributes
+    }
+
+    #[inline]
     pub fn is_unanswered(&self) -> bool {
         Status::Unanswered == self.status
     }
 
+    #[inline]
     pub fn is_answered(&self) -> bool {
         Status::Answered == self.status
     }
 
+    #[inline]
     pub fn is_abandoned(&self) -> bool {
         Status::Abandoned == self.status
     }
