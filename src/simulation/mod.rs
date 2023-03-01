@@ -208,16 +208,22 @@ impl Simulation {
     }
 
     fn increment_tick(&mut self) -> bool {
-        let client_buffer_head = self.client_buffer.peek().map(|c| c.0.borrow().start());
-        let server_buffer_head = self.server_buffer.peek().map(|c| c.0.tick);
+        // In order to allow custom routing options, we need to always tick with `tick_size` if
+        // there are clients waiting for servers. If there are no clients waiting, then we can
+        // directly advance the tick to the next client in the `client_buffer`, or the `server` in
+        // the `server_buffer`.
+        self.tick = if self.client_queue.is_empty() {
+            let client_buffer_head = self.client_buffer.peek().map(|c| c.0.borrow().start());
+            let server_buffer_head = self.server_buffer.peek().map(|c| c.0.tick);
 
-        let next_tick = match (client_buffer_head, server_buffer_head) {
-            (Some(t), Some(u)) if t >= u => t,
-            (Some(_) | None, Some(t)) | (Some(t), None) => t,
-            (None, None) => self.tick_until
+            match (client_buffer_head, server_buffer_head) {
+                (Some(t), Some(u)) if t >= u => t,
+                (Some(_) | None, Some(t)) | (Some(t), None) => t,
+                (None, None) => self.tick_until,
+            }
+        } else {
+            self.tick + self.tick_size
         };
-
-        self.tick = next_tick;
 
         if self.tick >= self.tick_until {
             self.running = false;
