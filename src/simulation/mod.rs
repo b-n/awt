@@ -109,12 +109,10 @@ impl Simulation {
         self.clients = self
             .client_profiles
             .iter()
-            .enumerate()
-            .flat_map(|(i, cp)| {
+            .flat_map(|cp| {
                 let mut clients = vec![];
                 for _ in 0..cp.quantity {
                     let mut client = Client::from(cp);
-                    client.set_id(i);
 
                     let start = self.rng.gen_range(0..=self.tick_until);
                     client.set_start(start);
