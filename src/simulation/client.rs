@@ -1,6 +1,6 @@
 use super::{Attribute, ClientProfile, TICKS_PER_SECOND};
 use std::cmp::Ordering;
-use std::sync::Arc;
+use std::sync::{atomic, atomic::AtomicUsize, Arc};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Status {
@@ -15,7 +15,9 @@ impl Default for Status {
     }
 }
 
-#[derive(Debug, Default, Clone, PartialEq, Eq)]
+static ID_COUNTER: AtomicUsize = AtomicUsize::new(0);
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Client {
     id: usize,
     required_attributes: Vec<Attribute>,
@@ -24,6 +26,20 @@ pub struct Client {
     established: Option<usize>,
     end: Option<usize>,
     status: Status,
+}
+
+impl Default for Client {
+    fn default() -> Self {
+        Self {
+            id: ID_COUNTER.fetch_add(1, atomic::Ordering::SeqCst),
+            required_attributes: vec![],
+            start: 0,
+            abandon_tick: 0,
+            established: None,
+            end: None,
+            status: Status::default(),
+        }
+    }
 }
 
 impl Ord for Client {
@@ -48,10 +64,6 @@ impl From<&Arc<ClientProfile>> for Client {
 }
 
 impl Client {
-    pub fn set_id(&mut self, id: usize) {
-        self.id = id;
-    }
-
     #[inline]
     pub fn id(&self) -> usize {
         self.id
