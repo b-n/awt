@@ -2,6 +2,8 @@ use super::{Attribute, ClientProfile, TICKS_PER_SECOND};
 use std::cmp::Ordering;
 use std::sync::{atomic, atomic::AtomicUsize, Arc};
 
+const ABANDON_TICKS: usize = 20 * TICKS_PER_SECOND;
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Status {
     Unanswered,
@@ -69,9 +71,10 @@ impl Client {
         self.id
     }
 
-    pub fn set_start(&mut self, tick: usize) {
+    pub fn set_start(&mut self, tick: usize) -> usize {
         self.start = tick;
-        self.abandon_tick = self.start + 20 * TICKS_PER_SECOND;
+        self.abandon_tick = self.start + ABANDON_TICKS;
+        self.abandon_tick
     }
 
     #[inline]
@@ -121,7 +124,7 @@ impl Client {
             tick
         );
 
-        if self.abandon_tick < tick {
+        if self.abandon_tick <= tick {
             println!("[CLIENT] {} abandoned at {}", self.id, tick);
             self.status = Status::Abandoned;
             self.end = Some(tick);
