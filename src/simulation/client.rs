@@ -135,7 +135,15 @@ impl Client {
     }
 
     pub fn handle(&mut self, tick: usize, handling_time: usize) -> usize {
+        assert!(
+            tick >= self.start,
+            "Cannot tick in the past. started: {}, current: {}",
+            self.start,
+            tick
+        );
+
         println!("[CLIENT] {} handled at {}", self.id, tick);
+
         self.established = Some(tick);
         let end = tick + handling_time;
         self.end = Some(end);
