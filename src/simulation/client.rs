@@ -151,4 +151,142 @@ impl Client {
 
         end
     }
+
+    #[allow(dead_code)]
+    pub fn wait_time(self) -> Option<usize> {
+        self.established.or(self.end).map(|t| t - self.start)
+    }
+
+    #[allow(dead_code)]
+    pub fn handle_time(self) -> Option<usize> {
+        if self.is_answered() {
+            let established = self
+                .established
+                .expect("Client should have an established time if answered");
+            self.end.map(|t| t - established)
+        } else {
+            None
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn default_status() {
+        let client = Client::default();
+        assert!(client.is_unanswered());
+    }
+
+    #[test]
+    fn abandons_past_abadonment_tick() {
+        let mut client = Client::default();
+        let abandon_tick = client.set_start(100);
+
+        client.tick_wait(abandon_tick - 1);
+        assert!(!client.is_abandoned());
+        assert!(!client.tick_wait(abandon_tick));
+        assert!(client.is_abandoned());
+    }
+
+    #[test]
+    fn only_ticks_when_unanswered() {
+        let mut client = Client::default();
+        let abandon_tick = client.set_start(100);
+
+        client.tick_wait(abandon_tick);
+
+        assert!(!client.tick_wait(abandon_tick + 1));
+    }
+
+    #[should_panic]
+    #[test]
+    fn panics_ticking_in_past() {
+        let mut client = Client::default();
+        client.set_start(100);
+
+        client.tick_wait(99);
+    }
+
+    #[test]
+    fn handling_handles() {
+        let mut client = Client::default();
+        client.set_start(100);
+
+        assert_eq!(200, client.handle(100, 100));
+        assert!(client.is_answered());
+        assert_eq!(Some(0), client.wait_time());
+    }
+
+    #[should_panic]
+    #[test]
+    fn handling_only_works_in_future() {
+        let mut client = Client::default();
+        client.set_start(100);
+
+        client.handle(99, 1);
+    }
+
+    #[test]
+    fn wait_time_abandoned() {
+        let mut client = Client::default();
+        let start_tick = 100;
+        let abandon_tick = client.set_start(start_tick);
+        client.tick_wait(abandon_tick);
+
+        assert!(client.is_abandoned());
+        assert_eq!(Some(abandon_tick - start_tick), client.wait_time());
+    }
+
+    #[test]
+    fn wait_time_answered() {
+        let mut client = Client::default();
+        client.set_start(100);
+        client.handle(200, 1);
+
+        assert!(client.is_answered());
+        assert_eq!(Some(100), client.wait_time());
+    }
+
+    #[test]
+    fn wait_time_unanswered() {
+        let mut client = Client::default();
+        client.set_start(100);
+        client.tick_wait(101);
+
+        assert!(client.is_unanswered());
+        assert_eq!(None, client.wait_time());
+    }
+
+    #[test]
+    fn handle_time_unanswered() {
+        let mut client = Client::default();
+        client.set_start(100);
+        client.tick_wait(101);
+
+        assert!(client.is_unanswered());
+        assert_eq!(None, client.handle_time());
+    }
+
+    #[test]
+    fn handle_time_answered() {
+        let mut client = Client::default();
+        client.set_start(100);
+        client.handle(200, 100);
+
+        assert!(client.is_answered());
+        assert_eq!(Some(100), client.handle_time());
+    }
+
+    #[test]
+    fn handle_time_abandonend() {
+        let mut client = Client::default();
+        let abandon_tick = client.set_start(100);
+        client.tick_wait(abandon_tick);
+
+        assert!(client.is_abandoned());
+        assert_eq!(None, client.handle_time());
+    }
 }
