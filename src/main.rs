@@ -36,9 +36,6 @@
 #![warn(trivial_casts, trivial_numeric_casts)]
 #![warn(unused_qualifications)]
 #![warn(variant_size_difference)]
-// Experimental features
-#![feature(let_chains)]
-#![feature(binary_heap_retain)]
 
 mod simulation;
 
