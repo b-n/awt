@@ -4,6 +4,7 @@ use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::Arc;
 
+#[allow(dead_code)]
 pub struct ClientRoutingData {
     id: usize,
     start: usize,
