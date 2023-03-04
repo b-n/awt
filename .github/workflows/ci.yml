@@ -12,6 +12,7 @@ jobs:
     name: Build
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
     env:
       RUSTFLAGS: -D warnings
       RUST_BACKTRACE: 1
