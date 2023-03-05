@@ -6,7 +6,7 @@ pub struct ClientProfile {
     pub required_attributes: Vec<Attribute>,
     base_handle_time: usize,
     base_clean_up_time: usize,
-    base_abandon_tick: usize,
+    pub base_abandon_tick: usize,
     pub quantity: usize,
 }
 

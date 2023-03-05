@@ -8,7 +8,7 @@ pub use attribute::Attribute;
 pub use client_profile::ClientProfile;
 pub use server::{EnqueuedServer, Server};
 
-use client::Client;
+use client::{Client, Status as ClientStatus};
 use routing::{route_clients, ClientRoutingData};
 
 pub use core::fmt::Debug;
@@ -59,30 +59,15 @@ impl Default for Simulation {
 
 impl Debug for Simulation {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let unanswered = self
-            .clients
-            .iter()
-            .filter(|c| c.borrow().is_unanswered())
-            .count();
-        let answered = self
-            .clients
-            .iter()
-            .filter(|c| c.borrow().is_answered())
-            .count();
-        let abandonend = self
-            .clients
-            .iter()
-            .filter(|c| c.borrow().is_abandoned())
-            .count();
+        let stats = self.clients.iter().fold(HashMap::new(), |mut acc, c| {
+            let i = acc.entry(*c.borrow().status()).or_insert(0);
+            *i += 1;
+            acc
+        });
 
-        writeln!(
-            f,
-            "Simulation Tick: {}
-Unanswered {:>4}
-Answered   {:>4}
-Abandoned  {:>4}",
-            self.tick, unanswered, answered, abandonend
-        )
+        writeln!(f, "Simulation Tick: {}", self.tick)?;
+        let _ = stats.iter().map(|(k, v)| writeln!(f, "{k:?} {v:>4}"));
+        Ok(())
     }
 }
 
@@ -244,7 +229,7 @@ impl Simulation {
             let server_buffer_head = self.server_buffer.peek().map(|c| c.0.tick);
 
             match (client_buffer_head, server_buffer_head) {
-                (Some(t), Some(u)) if t >= u => t,
+                (Some(t), Some(u)) if t <= u => t,
                 (Some(_) | None, Some(t)) | (Some(t), None) => t,
                 (None, None) => self.tick_until,
             }
@@ -264,7 +249,7 @@ impl Simulation {
         self.client_queue.retain(|_, client| {
             let mut client = client.borrow_mut();
             client.tick_wait(self.tick);
-            client.is_unanswered()
+            &ClientStatus::Enqueued == client.status()
         });
     }
 }
