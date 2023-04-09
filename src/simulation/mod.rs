@@ -67,7 +67,9 @@ impl Debug for Simulation {
         });
 
         writeln!(f, "Simulation Tick: {}", self.tick)?;
-        let _ = stats.iter().map(|(k, v)| writeln!(f, "{k:?} {v:>4}"));
+        for (k, v) in &stats {
+            writeln!(f, "{:11} {v:>4}", format!("{k:?}"))?;
+        }
         Ok(())
     }
 }
