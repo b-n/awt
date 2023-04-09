@@ -1,7 +1,7 @@
 use super::{Attribute, TICKS_PER_SECOND};
 
 #[allow(dead_code)]
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub struct ClientProfile {
     pub required_attributes: Vec<Attribute>,
     base_handle_time: usize,

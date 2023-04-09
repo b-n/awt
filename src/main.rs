@@ -37,8 +37,10 @@
 #![warn(unused_qualifications)]
 #![warn(variant_size_difference)]
 
+mod min_queue;
 mod simulation;
 
+use min_queue::MinQueue;
 use simulation::{ClientProfile, Server, Simulation};
 
 use std::sync::Arc;

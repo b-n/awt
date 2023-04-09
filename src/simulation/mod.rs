@@ -8,14 +8,15 @@ pub use attribute::Attribute;
 pub use client_profile::ClientProfile;
 pub use server::{EnqueuedServer, Server};
 
+use crate::MinQueue;
+
 use request::{Request, Status as RequestStatus};
 use routing::{route_requests, RequestRoutingData};
 
 pub use core::fmt::Debug;
 use rand::{rngs::ThreadRng, thread_rng, Rng};
 use std::cell::RefCell;
-use std::cmp::Reverse;
-use std::collections::{BinaryHeap, HashMap};
+use std::collections::HashMap;
 use std::rc::Rc;
 use std::sync::Arc;
 
@@ -30,10 +31,10 @@ pub struct Simulation {
     running: bool,
     client_profiles: Vec<Arc<ClientProfile>>,
     requests: Vec<Rc<RefCell<Request>>>,
-    request_buffer: BinaryHeap<Reverse<Rc<RefCell<Request>>>>,
+    request_buffer: MinQueue<Rc<RefCell<Request>>>,
     request_queue: HashMap<usize, Rc<RefCell<Request>>>,
     servers: Vec<Arc<Server>>,
-    server_buffer: BinaryHeap<Reverse<EnqueuedServer>>,
+    server_buffer: MinQueue<EnqueuedServer>,
     server_queue: HashMap<usize, Arc<Server>>,
     rng: ThreadRng,
 }
@@ -47,10 +48,10 @@ impl Default for Simulation {
             running: false,
             client_profiles: vec![],
             requests: vec![],
-            request_buffer: BinaryHeap::new(),
+            request_buffer: MinQueue::new(),
             request_queue: HashMap::new(),
             servers: vec![],
-            server_buffer: BinaryHeap::new(),
+            server_buffer: MinQueue::new(),
             server_queue: HashMap::new(),
             rng: thread_rng(),
         }
@@ -111,7 +112,7 @@ impl Simulation {
 
     fn generate_request_buffer(&mut self) {
         for request in &self.requests {
-            self.request_buffer.push(Reverse(request.clone()));
+            self.request_buffer.push(request.clone());
         }
     }
 
@@ -147,14 +148,13 @@ impl Simulation {
         while self
             .request_buffer
             .peek()
-            .map_or(self.tick_until, |c| c.0.borrow().start())
+            .map_or(self.tick_until, |c| c.borrow().start())
             <= self.tick
         {
             let next_request = self
                 .request_buffer
                 .pop()
-                .expect("Request was peeked and should have been popped")
-                .0;
+                .expect("Request was peeked and should have been popped");
 
             let mut request = next_request.borrow_mut();
             request.enqueue(self.tick);
@@ -168,14 +168,13 @@ impl Simulation {
         while self
             .server_buffer
             .peek()
-            .map_or(self.tick_until, |s| s.0.tick)
+            .map_or(self.tick_until, |s| s.tick)
             <= self.tick
         {
             let next_server = self
                 .server_buffer
                 .pop()
-                .expect("Server was peeked and should have popped")
-                .0;
+                .expect("Server was peeked and should have popped");
 
             self.server_queue
                 .insert(next_server.server.id(), next_server.server);
@@ -216,7 +215,7 @@ impl Simulation {
                 .expect("Server Id should have been queued");
 
             self.server_buffer
-                .push(Reverse(EnqueuedServer::new(server, release_tick)));
+                .push(EnqueuedServer::new(server, release_tick));
         }
     }
 
@@ -226,8 +225,8 @@ impl Simulation {
         // directly advance the tick to the next request in the `request_buffer`, or the `server` in
         // the `server_buffer`.
         self.tick = if self.request_queue.is_empty() {
-            let request_buffer_head = self.request_buffer.peek().map(|c| c.0.borrow().start());
-            let server_buffer_head = self.server_buffer.peek().map(|c| c.0.tick);
+            let request_buffer_head = self.request_buffer.peek().map(|c| c.borrow().start());
+            let server_buffer_head = self.server_buffer.peek().map(|c| c.tick);
 
             match (request_buffer_head, server_buffer_head) {
                 (Some(t), Some(u)) if t <= u => t,
