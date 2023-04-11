@@ -10,20 +10,24 @@ impl<T> MinQueue<T>
 where
     T: Ord,
 {
+    #[inline]
     pub fn new() -> Self {
         Self {
             inner: BinaryHeap::new(),
         }
     }
 
+    #[inline]
     pub fn push(&mut self, item: T) {
         self.inner.push(Reverse(item));
     }
 
+    #[inline]
     pub fn pop(&mut self) -> Option<T> {
         self.inner.pop().map(|t| t.0)
     }
 
+    #[inline]
     pub fn peek(&self) -> Option<&T> {
         self.inner.peek().map(|t| &t.0)
     }
