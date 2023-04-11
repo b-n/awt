@@ -243,7 +243,7 @@ impl Simulation {
                 .expect("Client Id does not exist")
                 .borrow_mut();
 
-            let release_tick = request.handle(self.tick, 300 * TICKS_PER_SECOND);
+            let release_tick = request.handle(self.tick);
 
             // TODO: Safely chceck that the server_queue has this server_id
             let server = self

@@ -131,7 +131,7 @@ impl Request {
         }
     }
 
-    pub fn handle(&mut self, tick: usize, handling_time: usize) -> usize {
+    pub fn handle(&mut self, tick: usize) -> usize {
         assert_eq!(
             Status::Enqueued,
             self.status,
@@ -147,7 +147,7 @@ impl Request {
 
         println!("[REQUEST] {} handled at {}", self.id, tick);
         self.established = Some(tick);
-        let end = tick + handling_time;
+        let end = tick + self.handle_ticks;
         self.end = Some(end);
         self.status = Status::Answered;
 
@@ -235,7 +235,7 @@ mod tests {
     fn handling_handles() {
         let (mut request, _) = enqueued_request(100);
 
-        assert_eq!(200, request.handle(100, 100));
+        assert_eq!(100 + HANDLE_TICKS, request.handle(100));
         assert_eq!(&Status::Answered, request.status());
         assert_eq!(Some(0), request.wait_time());
     }
@@ -247,7 +247,7 @@ mod tests {
 
         assert_eq!(&Status::Pending, request.status());
 
-        request.handle(120, 1);
+        request.handle(120);
     }
 
     #[should_panic]
@@ -255,7 +255,7 @@ mod tests {
     fn handling_only_works_in_future() {
         let (mut request, _) = enqueued_request(100);
 
-        request.handle(99, 1);
+        request.handle(99);
     }
 
     #[test]
@@ -270,7 +270,7 @@ mod tests {
     #[test]
     fn wait_time_answered() {
         let (mut request, _) = enqueued_request(100);
-        request.handle(200, 1);
+        request.handle(200);
 
         assert_eq!(&Status::Answered, request.status());
         assert_eq!(Some(100), request.wait_time());
@@ -297,10 +297,10 @@ mod tests {
     #[test]
     fn handle_time_answered() {
         let (mut request, _) = enqueued_request(100);
-        request.handle(200, 100);
+        request.handle(200);
 
         assert_eq!(&Status::Answered, request.status());
-        assert_eq!(Some(100), request.handle_time());
+        assert_eq!(Some(HANDLE_TICKS + 100), request.handle_time());
     }
 
     #[test]
