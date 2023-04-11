@@ -64,7 +64,7 @@ fn main() {
             let mut sim = Simulation::default();
             sim.add_server(server);
 
-            for profile in &profiles {
+            for profile in profiles {
                 sim.add_client_profile(profile);
             }
 

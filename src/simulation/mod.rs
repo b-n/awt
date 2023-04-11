@@ -6,11 +6,11 @@ mod server;
 
 pub use attribute::Attribute;
 pub use client_profile::ClientProfile;
+pub use request::{Request, Status as RequestStatus};
 pub use server::{EnqueuedServer, Server};
 
 use crate::MinQueue;
 
-use request::{Request, Status as RequestStatus};
 use routing::{route_requests, RequestRoutingData};
 
 pub use core::fmt::Debug;
@@ -80,8 +80,8 @@ impl Simulation {
         self.servers.push(server);
     }
 
-    pub fn add_client_profile(&mut self, client_profile: &Arc<ClientProfile>) {
-        self.client_profiles.push(client_profile.clone());
+    pub fn add_client_profile(&mut self, client_profile: Arc<ClientProfile>) {
+        self.client_profiles.push(client_profile);
     }
 
     pub fn enable(&mut self) {
