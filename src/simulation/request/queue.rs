@@ -1,10 +1,10 @@
 use super::{Request, Status};
 use crate::simulation::routing::RequestData;
+use crate::MinQueue;
+
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
-
-use crate::MinQueue;
 
 pub struct Queue {
     inner: Vec<Rc<RefCell<Request>>>,

@@ -1,16 +1,15 @@
-use super::Server;
+use super::QueueableServer;
 use crate::simulation::routing::ServerData;
-
-use std::cmp::Ordering;
-use std::collections::HashMap;
-use std::sync::Arc;
-
 use crate::MinQueue;
 
+use std::cell::RefCell;
+use std::collections::HashMap;
+use std::rc::Rc;
+
 pub struct Queue {
-    inner: Vec<Arc<Server>>,
-    enqueued: MinQueue<EnqueuedServer>,
-    waiting: HashMap<usize, (Arc<Server>, ServerData)>,
+    inner: Vec<Rc<RefCell<QueueableServer>>>,
+    enqueued: MinQueue<Rc<RefCell<QueueableServer>>>,
+    waiting: HashMap<usize, (Rc<RefCell<QueueableServer>>, ServerData)>,
 }
 
 // Setup and cretion logic
@@ -23,15 +22,19 @@ impl Queue {
         }
     }
 
-    pub fn push(&mut self, server: Arc<Server>) {
+    pub fn push(&mut self, server: QueueableServer) {
+        let server = Rc::new(RefCell::new(server));
+
         self.inner.push(server);
     }
 
     pub fn init(&mut self) {
         for server in &self.inner {
-            let routing_data = ServerData::from(server);
-            self.waiting
-                .insert(server.id(), (server.clone(), routing_data));
+            let routing_data = ServerData::from(server.borrow().server());
+            self.waiting.insert(
+                server.borrow().server().id(),
+                (server.clone(), routing_data),
+            );
         }
     }
 }
@@ -39,33 +42,23 @@ impl Queue {
 // Logic relevant for progressing and selecting items from the queue
 impl Queue {
     pub fn tick(&mut self, tick: usize) {
-        while self.enqueued.peek().map_or(usize::MAX, |s| s.tick) <= tick {
+        while self.enqueued.peek().map_or(usize::MAX, |s| s.borrow().tick) <= tick {
             let next_server = self
                 .enqueued
                 .pop()
-                .expect("Server was peeked and should have popped")
-                .server;
+                .expect("Server was peeked and should have popped");
 
-            let routing_data = ServerData::from(&next_server);
+            let routing_data = ServerData::from(next_server.borrow().server());
 
-            self.waiting
-                .insert(next_server.id(), (next_server.clone(), routing_data));
+            self.waiting.insert(
+                next_server.borrow().server().id(),
+                (next_server.clone(), routing_data),
+            );
         }
     }
 
     pub fn next_tick(&self) -> Option<usize> {
-        self.enqueued.peek().map(|c| c.tick)
-    }
-
-    pub fn enqueue(&mut self, id: usize, until: usize) {
-        // TODO: Safely chceck that the server_queue has this server_id
-        let server = self
-            .waiting
-            .remove(&id)
-            .expect("Server Id should have been queued")
-            .0;
-
-        self.enqueued.push(EnqueuedServer::new(server, until));
+        self.enqueued.peek().map(|c| c.borrow().tick)
     }
 }
 
@@ -74,29 +67,16 @@ impl Queue {
     pub fn routing_data(&self) -> Vec<&ServerData> {
         self.waiting.values().map(|(_, s)| s).collect()
     }
-}
 
-#[allow(clippy::module_name_repetitions)]
-#[derive(Debug, Default, Clone, Eq, PartialEq)]
-struct EnqueuedServer {
-    pub server: Arc<Server>,
-    pub tick: usize,
-}
+    pub fn enqueue(&mut self, id: usize, until: usize) {
+        // TODO: Safely chceck that the server_queue has this server_id
+        let (server, _) = self
+            .waiting
+            .remove(&id)
+            .expect("Server Id should have been queued");
 
-impl Ord for EnqueuedServer {
-    fn cmp(&self, other: &Self) -> Ordering {
-        self.tick.cmp(&other.tick)
-    }
-}
+        server.borrow_mut().tick = until;
 
-impl PartialOrd for EnqueuedServer {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        Some(self.cmp(other))
-    }
-}
-
-impl EnqueuedServer {
-    pub fn new(server: Arc<Server>, tick: usize) -> Self {
-        Self { server, tick }
+        self.enqueued.push(server);
     }
 }

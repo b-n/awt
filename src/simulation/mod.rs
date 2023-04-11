@@ -7,7 +7,7 @@ mod server;
 pub use attribute::Attribute;
 pub use client_profile::ClientProfile;
 pub use request::{Queue as RequestQueue, Request, Status as RequestStatus};
-pub use server::{Queue as ServerQueue, Server};
+pub use server::{Queue as ServerQueue, QueueableServer, Server};
 
 use routing::route_requests;
 
@@ -63,7 +63,7 @@ impl Simulation {
             "Servers can only be added whilst the simulation is stopped"
         );
 
-        self.server_queue.push(server);
+        self.server_queue.push(QueueableServer::new(server));
     }
 
     pub fn add_client_profile(&mut self, client_profile: Arc<ClientProfile>) {
