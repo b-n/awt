@@ -183,7 +183,7 @@ mod tests {
         let client_profile = Arc::new(ClientProfile::default());
 
         let abandon_ticks = start + ABANDON_TICKS;
-        let handle_ticks = start + HANDLE_TICKS;
+        let handle_ticks = HANDLE_TICKS;
 
         (
             Request::new(start, abandon_ticks, handle_ticks, vec![], client_profile),
@@ -300,7 +300,7 @@ mod tests {
         request.handle(200);
 
         assert_eq!(&Status::Answered, request.status());
-        assert_eq!(Some(HANDLE_TICKS + 100), request.handle_time());
+        assert_eq!(Some(HANDLE_TICKS), request.handle_time());
     }
 
     #[test]
