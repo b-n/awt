@@ -14,7 +14,7 @@ use crate::MinQueue;
 use routing::{route_requests, RequestRoutingData};
 
 pub use core::fmt::Debug;
-use rand::{rngs::ThreadRng, thread_rng, Rng};
+use rand::{Rng, RngCore};
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -23,7 +23,6 @@ use std::sync::Arc;
 pub const TICKS_PER_SECOND: usize = 1000;
 pub const ONE_HOUR: usize = TICKS_PER_SECOND * 60 * 60;
 
-#[derive(Clone)]
 pub struct Simulation {
     tick: usize,
     tick_size: usize,
@@ -36,11 +35,11 @@ pub struct Simulation {
     servers: Vec<Arc<Server>>,
     server_buffer: MinQueue<EnqueuedServer>,
     server_queue: HashMap<usize, Arc<Server>>,
-    rng: ThreadRng,
+    rng: Box<dyn RngCore>,
 }
 
-impl Default for Simulation {
-    fn default() -> Self {
+impl Simulation {
+    pub fn new(rng: Box<dyn RngCore>) -> Self {
         Self {
             tick: 0,
             tick_size: 1,
@@ -53,7 +52,7 @@ impl Default for Simulation {
             servers: vec![],
             server_buffer: MinQueue::new(),
             server_queue: HashMap::new(),
-            rng: thread_rng(),
+            rng,
         }
     }
 }

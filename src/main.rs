@@ -47,6 +47,8 @@ use std::sync::Arc;
 
 use std::thread;
 
+use rand::{rngs::SmallRng, thread_rng, SeedableRng};
+
 const N_THREADS: usize = 10_000;
 
 fn main() {
@@ -61,7 +63,8 @@ fn main() {
         let server = server.clone();
         let profiles = profiles.clone();
         children.push(thread::spawn(move || {
-            let mut sim = Simulation::default();
+            let rng = Box::new(SmallRng::from_rng(thread_rng()).unwrap());
+            let mut sim = Simulation::new(rng);
             sim.add_server(server);
 
             for profile in profiles {
