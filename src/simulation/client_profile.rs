@@ -1,12 +1,12 @@
-use super::{Attribute, TICKS_PER_SECOND};
+use super::Attribute;
 
 #[allow(dead_code)]
-#[derive(Debug, Clone, Eq, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ClientProfile {
     pub required_attributes: Vec<Attribute>,
-    pub base_handle_time: usize,
-    pub base_clean_up_time: usize,
-    pub base_abandon_tick: usize,
+    pub handle_time: usize,
+    pub clean_up_time: usize,
+    pub abandon_time: usize,
     pub quantity: usize,
 }
 
@@ -15,9 +15,9 @@ impl Default for ClientProfile {
         Self {
             required_attributes: vec![],
             quantity: 1,
-            base_handle_time: 0,
-            base_clean_up_time: 0,
-            base_abandon_tick: TICKS_PER_SECOND * 30,
+            handle_time: 300_000,
+            clean_up_time: 0,
+            abandon_time: 30_000,
         }
     }
 }

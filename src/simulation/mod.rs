@@ -128,10 +128,17 @@ impl Simulation {
             .flat_map(|cp| {
                 let mut requests = vec![];
                 for _ in 0..cp.quantity {
-                    let mut request = Request::from(cp);
-
                     let start = self.rng.gen_range(0..=self.tick_until);
-                    request.set_start(start);
+                    let abandon_ticks = cp.abandon_time;
+                    let handle_ticks = cp.handle_time;
+
+                    let request = Request::new(
+                        start,
+                        abandon_ticks,
+                        handle_ticks,
+                        cp.required_attributes.clone(),
+                        cp.clone(),
+                    );
 
                     requests.push(Rc::new(RefCell::new(request)));
                 }
@@ -361,7 +368,7 @@ mod tests {
 
         // Ensure two requests are provided in a way that the second cannot be handled in time
         let client_profile = Arc::new(ClientProfile {
-            base_handle_time: TICKS_PER_SECOND * 300,
+            handle_time: TICKS_PER_SECOND * 300,
             ..ClientProfile::default()
         });
         sim.add_client_profile(client_profile.clone());
