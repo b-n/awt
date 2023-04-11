@@ -13,6 +13,7 @@ pub struct Queue {
     waiting: HashMap<usize, (Arc<Server>, ServerData)>,
 }
 
+// Setup and cretion logic
 impl Queue {
     pub fn new() -> Self {
         Self {
@@ -26,15 +27,18 @@ impl Queue {
         self.inner.push(server);
     }
 
-    pub fn set_all_available(&mut self) {
+    pub fn init(&mut self) {
         for server in &self.inner {
             let routing_data = ServerData::from(server);
             self.waiting
                 .insert(server.id(), (server.clone(), routing_data));
         }
     }
+}
 
-    pub fn release_servers(&mut self, tick: usize) {
+// Logic relevant for progressing and selecting items from the queue
+impl Queue {
+    pub fn tick(&mut self, tick: usize) {
         while self.enqueued.peek().map_or(usize::MAX, |s| s.tick) <= tick {
             let next_server = self
                 .enqueued
@@ -49,23 +53,26 @@ impl Queue {
         }
     }
 
-    pub fn enqueued_head(&self) -> Option<usize> {
+    pub fn next_tick(&self) -> Option<usize> {
         self.enqueued.peek().map(|c| c.tick)
     }
 
-    pub fn routing_data(&self) -> Vec<&ServerData> {
-        self.waiting.values().map(|(_, s)| s).collect()
-    }
-
-    pub fn assign_server(&mut self, server_id: usize, until: usize) {
+    pub fn enqueue(&mut self, id: usize, until: usize) {
         // TODO: Safely chceck that the server_queue has this server_id
         let server = self
             .waiting
-            .remove(&server_id)
+            .remove(&id)
             .expect("Server Id should have been queued")
             .0;
 
         self.enqueued.push(EnqueuedServer::new(server, until));
+    }
+}
+
+// Misc
+impl Queue {
+    pub fn routing_data(&self) -> Vec<&ServerData> {
+        self.waiting.values().map(|(_, s)| s).collect()
     }
 }
 

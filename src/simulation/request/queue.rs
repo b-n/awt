@@ -12,6 +12,7 @@ pub struct Queue {
     waiting: HashMap<usize, (Rc<RefCell<Request>>, RequestData)>,
 }
 
+// Setup logic
 impl Queue {
     pub fn new() -> Self {
         Self {
@@ -26,17 +27,33 @@ impl Queue {
         self.inner.push(req);
     }
 
-    pub fn generate_queued(&mut self) {
+    // Assign all of the requests into the queue to be released
+    pub fn init(&mut self) {
         for req in &self.inner {
             self.enqueued.push(req.clone());
         }
     }
+}
 
-    pub fn requests(&self) -> &Vec<Rc<RefCell<Request>>> {
-        &self.inner
+// Ticking logic
+impl Queue {
+    pub fn tick(&mut self, tick: usize) {
+        // First tick the already waiting items, they cannot be assigned if they are already over
+        // their waiting limit.
+        self.tick_queued(tick);
+        // ...then release new items to the waiting queue to be assigned.
+        self.tick_release_to_queue(tick);
     }
 
-    pub fn enqueue(&mut self, tick: usize) {
+    fn tick_queued(&mut self, tick: usize) {
+        self.waiting.retain(|_, (request, _)| {
+            let mut request = request.borrow_mut();
+            request.tick_wait(tick);
+            &Status::Enqueued == request.status()
+        });
+    }
+
+    fn tick_release_to_queue(&mut self, tick: usize) {
         while self
             .enqueued
             .peek()
@@ -58,12 +75,19 @@ impl Queue {
         }
     }
 
-    pub fn has_waiting(&self) -> bool {
-        !self.waiting.is_empty()
+    pub fn next_tick(&self) -> Option<usize> {
+        self.enqueued.peek().map(|c| c.borrow().start())
+    }
+}
+
+// Misc
+impl Queue {
+    pub fn requests(&self) -> &Vec<Rc<RefCell<Request>>> {
+        &self.inner
     }
 
-    pub fn enqueued_head(&self) -> Option<usize> {
-        self.enqueued.peek().map(|c| c.borrow().start())
+    pub fn has_waiting(&self) -> bool {
+        !self.waiting.is_empty()
     }
 
     pub fn routing_data(&self) -> Vec<&RequestData> {
@@ -80,13 +104,5 @@ impl Queue {
             .borrow_mut();
 
         request.handle(tick)
-    }
-
-    pub fn tick_waiting(&mut self, tick: usize) {
-        self.waiting.retain(|_, (request, _)| {
-            let mut request = request.borrow_mut();
-            request.tick_wait(tick);
-            &Status::Enqueued == request.status()
-        });
     }
 }

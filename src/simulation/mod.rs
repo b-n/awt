@@ -84,9 +84,9 @@ impl Simulation {
         self.running = true;
         self.tick_size = 1;
         self.generate_requests();
-        self.generate_request_buffer();
 
-        self.set_servers_available();
+        self.server_queue.init();
+        self.request_queue.init();
     }
 
     /// Returns a tuple which indicates of the whether the `Simulation` is still running along with
@@ -113,31 +113,25 @@ impl Simulation {
 // Generators and state modifiers
 impl Simulation {
     fn generate_requests(&mut self) {
+        let mut request_from_client_profile = |cp: &Arc<ClientProfile>| -> Request {
+            let start = self.rng.gen_range(0..=self.tick_until);
+            let abandon_ticks = cp.abandon_time;
+            let handle_ticks = cp.handle_time;
+
+            Request::new(
+                start,
+                abandon_ticks,
+                handle_ticks,
+                cp.required_attributes.clone(),
+                cp.clone(),
+            )
+        };
+
         for cp in &self.client_profiles {
             for _ in 0..cp.quantity {
-                let start = self.rng.gen_range(0..=self.tick_until);
-                let abandon_ticks = cp.abandon_time;
-                let handle_ticks = cp.handle_time;
-
-                let request = Request::new(
-                    start,
-                    abandon_ticks,
-                    handle_ticks,
-                    cp.required_attributes.clone(),
-                    cp.clone(),
-                );
-
-                self.request_queue.push(request);
+                self.request_queue.push(request_from_client_profile(cp));
             }
         }
-    }
-
-    fn generate_request_buffer(&mut self) {
-        self.request_queue.generate_queued();
-    }
-
-    fn set_servers_available(&mut self) {
-        self.server_queue.set_all_available();
     }
 }
 
@@ -148,28 +142,17 @@ impl Simulation {
             return false;
         }
 
-        // release requests and servers
-        self.enqueue_requests();
-        self.enqueue_servers();
+        // release requests and servers from queues
+        self.request_queue.tick(self.tick);
+        self.server_queue.tick(self.tick);
 
         // assign the relevant servers
         self.do_routing();
 
         // tick the main simulation
         self.increment_tick();
-        // tick all the queued requests
-        self.tick_queued();
 
         self.running
-    }
-
-    /// Find which requests haven't been added to the queue yet.
-    fn enqueue_requests(&mut self) {
-        self.request_queue.enqueue(self.tick);
-    }
-
-    fn enqueue_servers(&mut self) {
-        self.server_queue.release_servers(self.tick);
     }
 
     /// Routing is fairly straight forward to orchestrate.
@@ -183,10 +166,15 @@ impl Simulation {
         let request_data = self.request_queue.routing_data();
         let server_data = self.server_queue.routing_data();
 
+        // Only attempt to route if there is actually something that could be done
+        if request_data.is_empty() || server_data.is_empty() {
+            return;
+        }
+
         for (request_id, server_id) in route_requests(request_data, server_data) {
             let release_tick = self.request_queue.handle_request(request_id, self.tick);
 
-            self.server_queue.assign_server(server_id, release_tick);
+            self.server_queue.enqueue(server_id, release_tick);
         }
     }
 
@@ -198,8 +186,8 @@ impl Simulation {
         self.tick = if self.request_queue.has_waiting() {
             self.tick + self.tick_size
         } else {
-            let request_buffer_head = self.request_queue.enqueued_head();
-            let server_buffer_head = self.server_queue.enqueued_head();
+            let request_buffer_head = self.request_queue.next_tick();
+            let server_buffer_head = self.server_queue.next_tick();
 
             match (request_buffer_head, server_buffer_head) {
                 (Some(t), Some(u)) if t <= u => t,
@@ -214,10 +202,6 @@ impl Simulation {
         }
 
         self.running
-    }
-
-    fn tick_queued(&mut self) {
-        self.request_queue.tick_waiting(self.tick);
     }
 }
 
