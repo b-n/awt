@@ -70,14 +70,29 @@ impl Debug for Simulation {
 // Structure and setup
 impl Simulation {
     pub fn add_server(&mut self, server: Arc<Server>) {
+        assert!(
+            !self.running,
+            "Servers can only be added whilst the simulation is stopped"
+        );
+
         self.servers.push(server);
     }
 
     pub fn add_client_profile(&mut self, client_profile: Arc<ClientProfile>) {
+        assert!(
+            !self.running,
+            "Client Profiles can only be added whilst the simulation is stopped"
+        );
+
         self.client_profiles.push(client_profile);
     }
 
+    /// Enables the `Simulation`, generating all the internal state required for running. A
+    /// `Simulation` can then be advanced by calling the `tick()` function until it returns
+    /// `false`.
     pub fn enable(&mut self) {
+        assert!(!self.running, "Cannot enable an already enabled simulation");
+
         self.running = true;
         self.tick_size = 1;
         self.generate_requests();
@@ -365,5 +380,36 @@ mod tests {
         assert_eq!(Some(&1), stats.get(&RequestStatus::Answered));
         assert_eq!(Some(&1), stats.get(&RequestStatus::Abandoned));
         assert_eq!((false, ONE_HOUR), sim.running());
+    }
+
+    #[test]
+    #[should_panic]
+    fn cannot_add_profiles_whilst_running() {
+        let mut sim = Simulation::new(mock_rng());
+        sim.enable();
+
+        // Cannot add profile to running sim
+        let client_profile = Arc::new(ClientProfile::default());
+        sim.add_client_profile(client_profile);
+    }
+
+    #[test]
+    #[should_panic]
+    fn cannot_enable_twice() {
+        let mut sim = Simulation::new(mock_rng());
+        sim.enable();
+
+        // Cannot enable twice
+        sim.enable();
+    }
+
+    #[test]
+    #[should_panic]
+    fn cannot_add_server_whilst_running() {
+        let mut sim = Simulation::new(mock_rng());
+        sim.enable();
+
+        let server = Arc::new(Server::default());
+        sim.add_server(server);
     }
 }
