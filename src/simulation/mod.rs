@@ -7,9 +7,7 @@ mod server;
 pub use attribute::Attribute;
 pub use client_profile::ClientProfile;
 pub use request::{Queue as RequestQueue, Request, Status as RequestStatus};
-pub use server::{EnqueuedServer, Server};
-
-use crate::MinQueue;
+pub use server::{Queue as ServerQueue, Server};
 
 use routing::route_requests;
 
@@ -28,9 +26,7 @@ pub struct Simulation {
     running: bool,
     client_profiles: Vec<Arc<ClientProfile>>,
     request_queue: RequestQueue,
-    servers: Vec<Arc<Server>>,
-    server_buffer: MinQueue<EnqueuedServer>,
-    server_queue: HashMap<usize, Arc<Server>>,
+    server_queue: ServerQueue,
     rng: Box<dyn RngCore>,
 }
 
@@ -43,9 +39,7 @@ impl Simulation {
             running: false,
             client_profiles: vec![],
             request_queue: RequestQueue::new(),
-            servers: vec![],
-            server_buffer: MinQueue::new(),
-            server_queue: HashMap::new(),
+            server_queue: ServerQueue::new(),
             rng,
         }
     }
@@ -69,7 +63,7 @@ impl Simulation {
             "Servers can only be added whilst the simulation is stopped"
         );
 
-        self.servers.push(server);
+        self.server_queue.push(server);
     }
 
     pub fn add_client_profile(&mut self, client_profile: Arc<ClientProfile>) {
@@ -143,7 +137,7 @@ impl Simulation {
     }
 
     fn set_servers_available(&mut self) {
-        self.server_queue = self.servers.iter().map(|s| (s.id(), s.clone())).collect();
+        self.server_queue.set_all_available();
     }
 }
 
@@ -175,20 +169,7 @@ impl Simulation {
     }
 
     fn enqueue_servers(&mut self) {
-        while self
-            .server_buffer
-            .peek()
-            .map_or(self.tick_until, |s| s.tick)
-            <= self.tick
-        {
-            let next_server = self
-                .server_buffer
-                .pop()
-                .expect("Server was peeked and should have popped");
-
-            self.server_queue
-                .insert(next_server.server.id(), next_server.server);
-        }
+        self.server_queue.release_servers(self.tick);
     }
 
     /// Routing is fairly straight forward to orchestrate.
@@ -199,21 +180,13 @@ impl Simulation {
     /// 3. The server is pulled into a buffer for the expected number of ticks, and removed from
     ///    the pool
     fn do_routing(&mut self) {
-        let request_data = self.request_queue.waiting_routing_data();
+        let request_data = self.request_queue.routing_data();
+        let server_data = self.server_queue.routing_data();
 
-        for (request_id, server_id) in
-            route_requests(request_data, self.server_queue.values().collect())
-        {
+        for (request_id, server_id) in route_requests(request_data, server_data) {
             let release_tick = self.request_queue.handle_request(request_id, self.tick);
 
-            // TODO: Safely chceck that the server_queue has this server_id
-            let server = self
-                .server_queue
-                .remove(&server_id)
-                .expect("Server Id should have been queued");
-
-            self.server_buffer
-                .push(EnqueuedServer::new(server, release_tick));
+            self.server_queue.assign_server(server_id, release_tick);
         }
     }
 
@@ -226,7 +199,7 @@ impl Simulation {
             self.tick + self.tick_size
         } else {
             let request_buffer_head = self.request_queue.enqueued_head();
-            let server_buffer_head = self.server_buffer.peek().map(|c| c.tick);
+            let server_buffer_head = self.server_queue.enqueued_head();
 
             match (request_buffer_head, server_buffer_head) {
                 (Some(t), Some(u)) if t <= u => t,

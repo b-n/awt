@@ -1,5 +1,5 @@
 use super::{Request, Status};
-use crate::simulation::routing::request_data::RequestData;
+use crate::simulation::routing::RequestData;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -66,7 +66,7 @@ impl Queue {
         self.enqueued.peek().map(|c| c.borrow().start())
     }
 
-    pub fn waiting_routing_data(&self) -> Vec<&RequestData> {
+    pub fn routing_data(&self) -> Vec<&RequestData> {
         self.waiting.values().map(|(_, r)| r).collect()
     }
 
