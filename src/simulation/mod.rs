@@ -6,18 +6,16 @@ mod server;
 
 pub use attribute::Attribute;
 pub use client_profile::ClientProfile;
-pub use request::{Request, Status as RequestStatus};
+pub use request::{Queue as RequestQueue, Request, Status as RequestStatus};
 pub use server::{EnqueuedServer, Server};
 
 use crate::MinQueue;
 
-use routing::{route_requests, RequestRoutingData};
+use routing::route_requests;
 
 pub use core::fmt::Debug;
 use rand::{Rng, RngCore};
-use std::cell::RefCell;
 use std::collections::HashMap;
-use std::rc::Rc;
 use std::sync::Arc;
 
 pub const TICKS_PER_SECOND: usize = 1000;
@@ -29,9 +27,7 @@ pub struct Simulation {
     tick_until: usize,
     running: bool,
     client_profiles: Vec<Arc<ClientProfile>>,
-    requests: Vec<Rc<RefCell<Request>>>,
-    request_buffer: MinQueue<Rc<RefCell<Request>>>,
-    request_queue: HashMap<usize, Rc<RefCell<Request>>>,
+    request_queue: RequestQueue,
     servers: Vec<Arc<Server>>,
     server_buffer: MinQueue<EnqueuedServer>,
     server_queue: HashMap<usize, Arc<Server>>,
@@ -46,9 +42,7 @@ impl Simulation {
             tick_until: ONE_HOUR,
             running: false,
             client_profiles: vec![],
-            requests: vec![],
-            request_buffer: MinQueue::new(),
-            request_queue: HashMap::new(),
+            request_queue: RequestQueue::new(),
             servers: vec![],
             server_buffer: MinQueue::new(),
             server_queue: HashMap::new(),
@@ -111,46 +105,41 @@ impl Simulation {
     /// Returns a `HashMap` which contains the status of a `Request`, and the number of `Request`s
     /// which meet that state.
     pub fn statistics(&self) -> HashMap<RequestStatus, usize> {
-        self.requests.iter().fold(HashMap::new(), |mut acc, c| {
-            let i = acc.entry(*c.borrow().status()).or_insert(0);
-            *i += 1;
-            acc
-        })
+        self.request_queue
+            .requests()
+            .iter()
+            .fold(HashMap::new(), |mut acc, c| {
+                let i = acc.entry(*c.borrow().status()).or_insert(0);
+                *i += 1;
+                acc
+            })
     }
 }
 
 // Generators and state modifiers
 impl Simulation {
     fn generate_requests(&mut self) {
-        self.requests = self
-            .client_profiles
-            .iter()
-            .flat_map(|cp| {
-                let mut requests = vec![];
-                for _ in 0..cp.quantity {
-                    let start = self.rng.gen_range(0..=self.tick_until);
-                    let abandon_ticks = cp.abandon_time;
-                    let handle_ticks = cp.handle_time;
+        for cp in &self.client_profiles {
+            for _ in 0..cp.quantity {
+                let start = self.rng.gen_range(0..=self.tick_until);
+                let abandon_ticks = cp.abandon_time;
+                let handle_ticks = cp.handle_time;
 
-                    let request = Request::new(
-                        start,
-                        abandon_ticks,
-                        handle_ticks,
-                        cp.required_attributes.clone(),
-                        cp.clone(),
-                    );
+                let request = Request::new(
+                    start,
+                    abandon_ticks,
+                    handle_ticks,
+                    cp.required_attributes.clone(),
+                    cp.clone(),
+                );
 
-                    requests.push(Rc::new(RefCell::new(request)));
-                }
-                requests
-            })
-            .collect();
+                self.request_queue.push(request);
+            }
+        }
     }
 
     fn generate_request_buffer(&mut self) {
-        for request in &self.requests {
-            self.request_buffer.push(request.clone());
-        }
+        self.request_queue.generate_queued();
     }
 
     fn set_servers_available(&mut self) {
@@ -182,23 +171,7 @@ impl Simulation {
 
     /// Find which requests haven't been added to the queue yet.
     fn enqueue_requests(&mut self) {
-        while self
-            .request_buffer
-            .peek()
-            .map_or(self.tick_until, |c| c.borrow().start())
-            <= self.tick
-        {
-            let next_request = self
-                .request_buffer
-                .pop()
-                .expect("Request was peeked and should have been popped");
-
-            let mut request = next_request.borrow_mut();
-            request.enqueue(self.tick);
-
-            self.request_queue
-                .insert(request.id(), next_request.clone());
-        }
+        self.request_queue.enqueue(self.tick);
     }
 
     fn enqueue_servers(&mut self) {
@@ -226,24 +199,12 @@ impl Simulation {
     /// 3. The server is pulled into a buffer for the expected number of ticks, and removed from
     ///    the pool
     fn do_routing(&mut self) {
-        // TODO: Cache this data, it doesn't change cycle to cycle
-        let request_data: Vec<RequestRoutingData> = self
-            .request_queue
-            .values()
-            .map(RequestRoutingData::from)
-            .collect();
+        let request_data = self.request_queue.waiting_routing_data();
 
         for (request_id, server_id) in
-            route_requests(&request_data, self.server_queue.values().collect())
+            route_requests(request_data, self.server_queue.values().collect())
         {
-            // TODO: handle request not in queue
-            let mut request = self
-                .request_queue
-                .get(&request_id)
-                .expect("Client Id does not exist")
-                .borrow_mut();
-
-            let release_tick = request.handle(self.tick);
+            let release_tick = self.request_queue.handle_request(request_id, self.tick);
 
             // TODO: Safely chceck that the server_queue has this server_id
             let server = self
@@ -261,8 +222,10 @@ impl Simulation {
         // there are requests waiting for servers. If there are no requests waiting, then we can
         // directly advance the tick to the next request in the `request_buffer`, or the `server` in
         // the `server_buffer`.
-        self.tick = if self.request_queue.is_empty() {
-            let request_buffer_head = self.request_buffer.peek().map(|c| c.borrow().start());
+        self.tick = if self.request_queue.has_waiting() {
+            self.tick + self.tick_size
+        } else {
+            let request_buffer_head = self.request_queue.enqueued_head();
             let server_buffer_head = self.server_buffer.peek().map(|c| c.tick);
 
             match (request_buffer_head, server_buffer_head) {
@@ -270,8 +233,6 @@ impl Simulation {
                 (Some(_) | None, Some(t)) | (Some(t), None) => t,
                 (None, None) => self.tick_until,
             }
-        } else {
-            self.tick + self.tick_size
         };
 
         if self.tick >= self.tick_until {
@@ -283,11 +244,7 @@ impl Simulation {
     }
 
     fn tick_queued(&mut self) {
-        self.request_queue.retain(|_, request| {
-            let mut request = request.borrow_mut();
-            request.tick_wait(self.tick);
-            &RequestStatus::Enqueued == request.status()
-        });
+        self.request_queue.tick_waiting(self.tick);
     }
 }
 

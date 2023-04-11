@@ -1,3 +1,7 @@
+pub mod queue;
+
+pub use queue::Queue;
+
 use super::{Attribute, ClientProfile};
 use std::cmp::Ordering;
 use std::sync::{atomic, atomic::AtomicUsize, Arc};
