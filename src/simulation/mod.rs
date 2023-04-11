@@ -59,14 +59,8 @@ impl Simulation {
 
 impl Debug for Simulation {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let stats = self.requests.iter().fold(HashMap::new(), |mut acc, c| {
-            let i = acc.entry(*c.borrow().status()).or_insert(0);
-            *i += 1;
-            acc
-        });
-
         writeln!(f, "Simulation Tick: {}", self.tick)?;
-        for (k, v) in &stats {
+        for (k, v) in self.statistics() {
             writeln!(f, "{:11} {v:>4}", format!("{k:?}"))?;
         }
         Ok(())
@@ -92,6 +86,26 @@ impl Simulation {
         self.set_servers_available();
     }
 
+    /// Returns a tuple which indicates of the whether the `Simulation` is still running along with
+    /// it's current tick.
+    #[allow(dead_code)]
+    pub fn running(&self) -> (bool, usize) {
+        (self.running, self.tick)
+    }
+
+    /// Returns a `HashMap` which contains the status of a `Request`, and the number of `Request`s
+    /// which meet that state.
+    pub fn statistics(&self) -> HashMap<RequestStatus, usize> {
+        self.requests.iter().fold(HashMap::new(), |mut acc, c| {
+            let i = acc.entry(*c.borrow().status()).or_insert(0);
+            *i += 1;
+            acc
+        })
+    }
+}
+
+// Generators and state modifiers
+impl Simulation {
     fn generate_requests(&mut self) {
         self.requests = self
             .client_profiles
@@ -252,5 +266,104 @@ impl Simulation {
             request.tick_wait(self.tick);
             &RequestStatus::Enqueued == request.status()
         });
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    use rand::rngs::mock::StepRng;
+
+    fn mock_rng() -> Box<dyn RngCore> {
+        // Set the step size to be compatible with `gen_range`. `gen_range` restricts the domain by
+        // giving multiple rolls per element in the range sequentially.
+        let step = u64::MAX / ONE_HOUR as u64;
+
+        Box::new(StepRng::new(1, step))
+    }
+
+    #[test]
+    fn empty_sim() {
+        let mut sim = Simulation::new(mock_rng());
+
+        sim.enable();
+
+        while sim.tick() {}
+
+        let stats = sim.statistics();
+        assert_eq!(None, stats.get(&RequestStatus::Pending));
+        assert_eq!(None, stats.get(&RequestStatus::Enqueued));
+        assert_eq!(None, stats.get(&RequestStatus::Answered));
+        assert_eq!(None, stats.get(&RequestStatus::Abandoned));
+        assert_eq!((false, ONE_HOUR), sim.running());
+    }
+
+    #[test]
+    fn no_servers() {
+        let mut sim = Simulation::new(mock_rng());
+
+        let client_profile = Arc::new(ClientProfile::default());
+        sim.add_client_profile(client_profile);
+
+        sim.enable();
+
+        while sim.tick() {}
+
+        let stats = sim.statistics();
+        assert_eq!(None, stats.get(&RequestStatus::Pending));
+        assert_eq!(None, stats.get(&RequestStatus::Enqueued));
+        assert_eq!(None, stats.get(&RequestStatus::Answered));
+        assert_eq!(Some(&1), stats.get(&RequestStatus::Abandoned));
+        assert_eq!((false, ONE_HOUR), sim.running());
+    }
+
+    #[test]
+    fn can_handle_requests() {
+        let mut sim = Simulation::new(mock_rng());
+
+        let client_profile = Arc::new(ClientProfile::default());
+        sim.add_client_profile(client_profile);
+
+        let server = Arc::new(Server::default());
+        sim.add_server(server);
+
+        sim.enable();
+
+        while sim.tick() {}
+
+        let stats = sim.statistics();
+        assert_eq!(None, stats.get(&RequestStatus::Pending));
+        assert_eq!(None, stats.get(&RequestStatus::Enqueued));
+        assert_eq!(Some(&1), stats.get(&RequestStatus::Answered));
+        assert_eq!(None, stats.get(&RequestStatus::Abandoned));
+        assert_eq!((false, ONE_HOUR), sim.running());
+    }
+
+    #[test]
+    fn requests_can_abandon() {
+        let mut sim = Simulation::new(mock_rng());
+
+        // Ensure two requests are provided in a way that the second cannot be handled in time
+        let client_profile = Arc::new(ClientProfile {
+            base_handle_time: TICKS_PER_SECOND * 300,
+            ..ClientProfile::default()
+        });
+        sim.add_client_profile(client_profile.clone());
+        sim.add_client_profile(client_profile);
+
+        let server = Arc::new(Server::default());
+        sim.add_server(server);
+
+        sim.enable();
+
+        while sim.tick() {}
+
+        let stats = sim.statistics();
+        assert_eq!(None, stats.get(&RequestStatus::Pending));
+        assert_eq!(None, stats.get(&RequestStatus::Enqueued));
+        assert_eq!(Some(&1), stats.get(&RequestStatus::Answered));
+        assert_eq!(Some(&1), stats.get(&RequestStatus::Abandoned));
+        assert_eq!((false, ONE_HOUR), sim.running());
     }
 }

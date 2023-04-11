@@ -4,8 +4,8 @@ use super::{Attribute, TICKS_PER_SECOND};
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct ClientProfile {
     pub required_attributes: Vec<Attribute>,
-    base_handle_time: usize,
-    base_clean_up_time: usize,
+    pub base_handle_time: usize,
+    pub base_clean_up_time: usize,
     pub base_abandon_tick: usize,
     pub quantity: usize,
 }
