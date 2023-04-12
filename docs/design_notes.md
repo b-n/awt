@@ -66,3 +66,25 @@ with the connection time of a request, but is not concerned with the answer time
 Reporting on each metric is possible as soon as specific events happen - specifically,
 time to answer/abandon metrics are available as soon as a request is connected/abandoned, however
 the value does not change when the connection is finished.
+
+## Traits
+
+### TimedQueue
+
+The simulation requires certain things to happen at certain times, and this applies for both servers
+and for requests. As such, it'd be nice to wrap this shared logic in some kind of timedqueue trait.
+
+A TimedQueue:
+
+- Holds a list of elements that implement `Tickable` which returns a type which implements Ord
+- Implements a `tick` function which releases the elements into a buffer
+
+Since elements would need to implement `Ord`, this could be backed by a BinaryHeap.
+
+Methods:
+
+- `push(T)` - pushes owned element T
+- `tick(U)` - finds all elements in timed queue which at >= the value U and releases to the internal
+  buffer
+- `buffer()` - get access to underlying buffered elements, transfers ownership to caller
+- `drain()` - release all remaining elements to the buffer
