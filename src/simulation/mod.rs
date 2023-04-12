@@ -115,7 +115,7 @@ impl Simulation {
     fn generate_requests(&mut self) {
         let mut request_from_client_profile = |cp: &Arc<ClientProfile>| -> Request {
             let start = self.rng.gen_range(0..=self.tick_until);
-            let abandon_ticks = cp.abandon_time;
+            let abandon_ticks = start + cp.abandon_time;
             let handle_ticks = cp.handle_time;
 
             Request::new(

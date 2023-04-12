@@ -268,7 +268,7 @@ mod tests {
         request.tick_wait(abandon_tick);
 
         assert_eq!(&Status::Abandoned, request.status());
-        assert_eq!(Some(abandon_tick - 100), request.wait_time());
+        assert_eq!(Some(ABANDON_TICKS), request.wait_time());
     }
 
     #[test]
