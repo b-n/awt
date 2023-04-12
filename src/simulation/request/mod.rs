@@ -158,13 +158,12 @@ impl Request {
         end
     }
 
-    #[allow(dead_code)]
-    pub fn wait_time(self) -> Option<usize> {
+    pub fn wait_time(&self) -> Option<usize> {
         self.established.or(self.end).map(|t| t - self.start)
     }
 
     #[allow(dead_code)]
-    pub fn handle_time(self) -> Option<usize> {
+    pub fn handle_time(&self) -> Option<usize> {
         if Status::Answered == self.status {
             let established = self
                 .established

@@ -37,9 +37,11 @@
 #![warn(unused_qualifications)]
 #![warn(variant_size_difference)]
 
+mod metric;
 mod min_queue;
 mod simulation;
 
+use metric::{Metric, MetricType};
 use min_queue::MinQueue;
 use simulation::{ClientProfile, Server, Simulation};
 
@@ -57,11 +59,16 @@ fn main() {
     for _ in 0..100 {
         profiles.push(Arc::new(ClientProfile::default()));
     }
+    let metrics = vec![
+        Metric::with_target(MetricType::AbandonRate, 0.1),
+        Metric::with_target(MetricType::AverageSpeedAnswer, 15_000.0),
+    ];
 
     let mut children = vec![];
     for i in 0..N_THREADS {
         let server = server.clone();
         let profiles = profiles.clone();
+        let metrics = metrics.clone();
         children.push(thread::spawn(move || {
             let rng = Box::new(SmallRng::from_rng(thread_rng()).unwrap());
             let mut sim = Simulation::new(rng);
@@ -71,11 +78,15 @@ fn main() {
                 sim.add_client_profile(profile);
             }
 
+            for metric in metrics {
+                sim.add_metric(metric);
+            }
+
             sim.enable();
 
             while sim.tick() {}
 
-            println!("Thread {i}\n{sim:?}");
+            println!("Thread {i} {:?}\n{}", sim.running(), sim.statistics());
         }));
     }
 

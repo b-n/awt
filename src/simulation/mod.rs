@@ -3,18 +3,19 @@ mod client_profile;
 mod request;
 mod routing;
 mod server;
+mod statistics;
+
+use rand::{Rng, RngCore};
+use std::sync::Arc;
 
 pub use attribute::Attribute;
 pub use client_profile::ClientProfile;
 pub use request::{Queue as RequestQueue, Request, Status as RequestStatus};
 pub use server::{Queue as ServerQueue, QueueableServer, Server};
+pub use statistics::Statistics;
 
+use crate::metric::Metric;
 use routing::route_requests;
-
-pub use core::fmt::Debug;
-use rand::{Rng, RngCore};
-use std::collections::HashMap;
-use std::sync::Arc;
 
 pub const TICKS_PER_SECOND: usize = 1000;
 pub const ONE_HOUR: usize = TICKS_PER_SECOND * 60 * 60;
@@ -27,6 +28,7 @@ pub struct Simulation {
     client_profiles: Vec<Arc<ClientProfile>>,
     request_queue: RequestQueue,
     server_queue: ServerQueue,
+    statistics: Statistics,
     rng: Box<dyn RngCore>,
 }
 
@@ -40,18 +42,9 @@ impl Simulation {
             client_profiles: vec![],
             request_queue: RequestQueue::new(),
             server_queue: ServerQueue::new(),
+            statistics: Statistics::default(),
             rng,
         }
-    }
-}
-
-impl Debug for Simulation {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        writeln!(f, "Simulation Tick: {}", self.tick)?;
-        for (k, v) in self.statistics() {
-            writeln!(f, "{:11} {v:>4}", format!("{k:?}"))?;
-        }
-        Ok(())
     }
 }
 
@@ -96,17 +89,25 @@ impl Simulation {
         (self.running, self.tick)
     }
 
-    /// Returns a `HashMap` which contains the status of a `Request`, and the number of `Request`s
-    /// which meet that state.
-    pub fn statistics(&self) -> HashMap<RequestStatus, usize> {
-        self.request_queue
-            .requests()
-            .iter()
-            .fold(HashMap::new(), |mut acc, c| {
-                let i = acc.entry(*c.borrow().status()).or_insert(0);
-                *i += 1;
-                acc
-            })
+    pub fn add_metric(&mut self, metric: Metric) {
+        assert!(
+            !self.running,
+            "Cannot add metric whilst simulation is in progress"
+        );
+
+        self.statistics.push(metric);
+    }
+
+    /// Returns the `Statistics` object for this simulation.
+    pub fn statistics(&mut self) -> &Statistics {
+        assert!(
+            !self.running,
+            "Cannot get statistics for inprogress simulation"
+        );
+
+        let requests = self.request_queue.requests();
+        self.statistics.calculate(requests);
+        &self.statistics
     }
 }
 
@@ -208,6 +209,7 @@ impl Simulation {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::MetricType;
 
     use rand::rngs::mock::StepRng;
 
@@ -219,25 +221,38 @@ mod tests {
         Box::new(StepRng::new(1, step))
     }
 
+    fn simulation() -> Simulation {
+        let mut sim = Simulation::new(mock_rng());
+
+        sim.add_metric(Metric::with_target(MetricType::AbandonRate, 0.0));
+
+        sim
+    }
+
     #[test]
     fn empty_sim() {
-        let mut sim = Simulation::new(mock_rng());
+        let mut sim = simulation();
 
         sim.enable();
 
         while sim.tick() {}
 
         let stats = sim.statistics();
-        assert_eq!(None, stats.get(&RequestStatus::Pending));
-        assert_eq!(None, stats.get(&RequestStatus::Enqueued));
-        assert_eq!(None, stats.get(&RequestStatus::Answered));
-        assert_eq!(None, stats.get(&RequestStatus::Abandoned));
+        assert_eq!(
+            Some(0.0),
+            stats.get(&MetricType::AbandonRate).map(Metric::value)
+        );
+        // TODO: Re-enable after enabling countable metrics
+        //assert_eq!(None, stats.get(&RequestStatus::Pending));
+        //assert_eq!(None, stats.get(&RequestStatus::Enqueued));
+        //assert_eq!(None, stats.get(&RequestStatus::Answered));
+        //assert_eq!(None, stats.get(&RequestStatus::Abandoned));
         assert_eq!((false, ONE_HOUR), sim.running());
     }
 
     #[test]
     fn no_servers() {
-        let mut sim = Simulation::new(mock_rng());
+        let mut sim = simulation();
 
         let client_profile = Arc::new(ClientProfile::default());
         sim.add_client_profile(client_profile);
@@ -247,16 +262,21 @@ mod tests {
         while sim.tick() {}
 
         let stats = sim.statistics();
-        assert_eq!(None, stats.get(&RequestStatus::Pending));
-        assert_eq!(None, stats.get(&RequestStatus::Enqueued));
-        assert_eq!(None, stats.get(&RequestStatus::Answered));
-        assert_eq!(Some(&1), stats.get(&RequestStatus::Abandoned));
+        assert_eq!(
+            Some(1.0),
+            stats.get(&MetricType::AbandonRate).map(Metric::value)
+        );
+        // TODO: Re-enable after enabling countable metrics
+        //assert_eq!(None, stats.get(&RequestStatus::Pending));
+        //assert_eq!(None, stats.get(&RequestStatus::Enqueued));
+        //assert_eq!(None, stats.get(&RequestStatus::Answered));
+        //assert_eq!(Some(&1), stats.get(&RequestStatus::Abandoned));
         assert_eq!((false, ONE_HOUR), sim.running());
     }
 
     #[test]
     fn can_handle_requests() {
-        let mut sim = Simulation::new(mock_rng());
+        let mut sim = simulation();
 
         let client_profile = Arc::new(ClientProfile::default());
         sim.add_client_profile(client_profile);
@@ -269,16 +289,21 @@ mod tests {
         while sim.tick() {}
 
         let stats = sim.statistics();
-        assert_eq!(None, stats.get(&RequestStatus::Pending));
-        assert_eq!(None, stats.get(&RequestStatus::Enqueued));
-        assert_eq!(Some(&1), stats.get(&RequestStatus::Answered));
-        assert_eq!(None, stats.get(&RequestStatus::Abandoned));
+        assert_eq!(
+            Some(0.0),
+            stats.get(&MetricType::AbandonRate).map(Metric::value)
+        );
+        // TODO: Re-enable after enabling countable metrics
+        //assert_eq!(None, stats.get(&RequestStatus::Pending));
+        //assert_eq!(None, stats.get(&RequestStatus::Enqueued));
+        //assert_eq!(Some(&1), stats.get(&RequestStatus::Answered));
+        //assert_eq!(None, stats.get(&RequestStatus::Abandoned));
         assert_eq!((false, ONE_HOUR), sim.running());
     }
 
     #[test]
     fn requests_can_abandon() {
-        let mut sim = Simulation::new(mock_rng());
+        let mut sim = simulation();
 
         // Ensure two requests are provided in a way that the second cannot be handled in time
         let client_profile = Arc::new(ClientProfile {
@@ -296,10 +321,15 @@ mod tests {
         while sim.tick() {}
 
         let stats = sim.statistics();
-        assert_eq!(None, stats.get(&RequestStatus::Pending));
-        assert_eq!(None, stats.get(&RequestStatus::Enqueued));
-        assert_eq!(Some(&1), stats.get(&RequestStatus::Answered));
-        assert_eq!(Some(&1), stats.get(&RequestStatus::Abandoned));
+        assert_eq!(
+            Some(0.5),
+            stats.get(&MetricType::AbandonRate).map(Metric::value)
+        );
+        // TODO: Re-enable after enabling countable metrics
+        //assert_eq!(None, stats.get(&RequestStatus::Pending));
+        //assert_eq!(None, stats.get(&RequestStatus::Enqueued));
+        //assert_eq!(Some(&1), stats.get(&RequestStatus::Answered));
+        //assert_eq!(Some(&1), stats.get(&RequestStatus::Abandoned));
         assert_eq!((false, ONE_HOUR), sim.running());
     }
 
