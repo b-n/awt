@@ -16,30 +16,31 @@ fn report(m: &mut Metric, r: &Ref<'_, Request>) {
     match m.metric() {
         MetricType::ServiceLevel(ticks) if &RequestStatus::Answered == r.status() => {
             if let Some(tick) = r.wait_time() {
-                m.report_bool(tick <= *ticks);
+                m.report_bool(tick <= ticks);
             }
         }
         MetricType::AverageWorkTime if &RequestStatus::Answered == r.status() => {
             if let Some(tick) = r.handle_time() {
-                m.report_tick(tick);
+                m.report_usize(tick);
             }
         }
         MetricType::AverageSpeedAnswer if &RequestStatus::Answered == r.status() => {
             if let Some(tick) = r.wait_time() {
-                m.report_tick(tick);
+                m.report_usize(tick);
             }
         }
         MetricType::AverageTimeToAbandon if &RequestStatus::Abandoned == r.status() => {
             if let Some(tick) = r.wait_time() {
-                m.report_tick(tick);
+                m.report_usize(tick);
             }
         }
         MetricType::AbandonRate => m.report_bool(&RequestStatus::Abandoned == r.status()),
         MetricType::AverageTimeInQueue => {
             if let Some(tick) = r.wait_time() {
-                m.report_tick(tick);
+                m.report_usize(tick);
             }
         }
+        MetricType::AnswerCount if &RequestStatus::Answered == r.status() => m.report(),
         MetricType::UtilisationTime => todo!(),
         _ => (),
     }
@@ -50,9 +51,10 @@ impl Display for Statistics {
         for metric in self.metrics.values() {
             writeln!(
                 f,
-                "{:20} {:>4}",
+                "{:20} {:<5} {:?}",
                 format!("{:?}", metric.metric()),
-                metric.value()
+                metric.on_target(),
+                metric.value().unwrap_or(0.0)
             )?;
         }
         Ok(())
@@ -70,7 +72,7 @@ impl Debug for Statistics {
 
 impl Statistics {
     pub fn push(&mut self, m: Metric) {
-        self.metrics.insert(*m.metric(), m);
+        self.metrics.insert(m.metric(), m);
     }
 
     #[allow(dead_code)]
@@ -89,17 +91,4 @@ impl Statistics {
             }
         }
     }
-
-    // Returns a `HashMap` which contains the status of a `Request`, and the number of `Request`s
-    // which meet that state.
-    //pub fn statistics(&self) -> HashMap<RequestStatus, usize> {
-    //self.request_queue
-    //.requests()
-    //.iter()
-    //.fold(HashMap::new(), |mut acc, c| {
-    //let i = acc.entry(*c.borrow().status()).or_insert(0);
-    //*i += 1;
-    //acc
-    //})
-    //}
 }

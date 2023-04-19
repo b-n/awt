@@ -224,7 +224,8 @@ mod tests {
     fn simulation() -> Simulation {
         let mut sim = Simulation::new(mock_rng());
 
-        sim.add_metric(Metric::with_target(MetricType::AbandonRate, 0.0));
+        sim.add_metric(Metric::with_target_f64(MetricType::AbandonRate, 0.0).unwrap());
+        sim.add_metric(Metric::with_target_usize(MetricType::AnswerCount, 0).unwrap());
 
         sim
     }
@@ -239,14 +240,13 @@ mod tests {
 
         let stats = sim.statistics();
         assert_eq!(
-            Some(0.0),
-            stats.get(&MetricType::AbandonRate).map(Metric::value)
+            None,
+            stats.get(&MetricType::AbandonRate).and_then(Metric::value)
         );
-        // TODO: Re-enable after enabling countable metrics
-        //assert_eq!(None, stats.get(&RequestStatus::Pending));
-        //assert_eq!(None, stats.get(&RequestStatus::Enqueued));
-        //assert_eq!(None, stats.get(&RequestStatus::Answered));
-        //assert_eq!(None, stats.get(&RequestStatus::Abandoned));
+        assert_eq!(
+            Some(0.0),
+            stats.get(&MetricType::AnswerCount).and_then(Metric::value)
+        );
         assert_eq!((false, ONE_HOUR), sim.running());
     }
 
@@ -264,13 +264,12 @@ mod tests {
         let stats = sim.statistics();
         assert_eq!(
             Some(1.0),
-            stats.get(&MetricType::AbandonRate).map(Metric::value)
+            stats.get(&MetricType::AbandonRate).and_then(Metric::value)
         );
-        // TODO: Re-enable after enabling countable metrics
-        //assert_eq!(None, stats.get(&RequestStatus::Pending));
-        //assert_eq!(None, stats.get(&RequestStatus::Enqueued));
-        //assert_eq!(None, stats.get(&RequestStatus::Answered));
-        //assert_eq!(Some(&1), stats.get(&RequestStatus::Abandoned));
+        assert_eq!(
+            Some(0.0),
+            stats.get(&MetricType::AnswerCount).and_then(Metric::value)
+        );
         assert_eq!((false, ONE_HOUR), sim.running());
     }
 
@@ -291,13 +290,12 @@ mod tests {
         let stats = sim.statistics();
         assert_eq!(
             Some(0.0),
-            stats.get(&MetricType::AbandonRate).map(Metric::value)
+            stats.get(&MetricType::AbandonRate).and_then(Metric::value)
         );
-        // TODO: Re-enable after enabling countable metrics
-        //assert_eq!(None, stats.get(&RequestStatus::Pending));
-        //assert_eq!(None, stats.get(&RequestStatus::Enqueued));
-        //assert_eq!(Some(&1), stats.get(&RequestStatus::Answered));
-        //assert_eq!(None, stats.get(&RequestStatus::Abandoned));
+        assert_eq!(
+            Some(1.0),
+            stats.get(&MetricType::AnswerCount).and_then(Metric::value)
+        );
         assert_eq!((false, ONE_HOUR), sim.running());
     }
 
@@ -323,13 +321,13 @@ mod tests {
         let stats = sim.statistics();
         assert_eq!(
             Some(0.5),
-            stats.get(&MetricType::AbandonRate).map(Metric::value)
+            stats.get(&MetricType::AbandonRate).and_then(Metric::value)
         );
-        // TODO: Re-enable after enabling countable metrics
-        //assert_eq!(None, stats.get(&RequestStatus::Pending));
-        //assert_eq!(None, stats.get(&RequestStatus::Enqueued));
-        //assert_eq!(Some(&1), stats.get(&RequestStatus::Answered));
-        //assert_eq!(Some(&1), stats.get(&RequestStatus::Abandoned));
+        assert_eq!(
+            Some(1.0),
+            stats.get(&MetricType::AnswerCount).and_then(Metric::value)
+        );
+
         assert_eq!((false, ONE_HOUR), sim.running());
     }
 
