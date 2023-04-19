@@ -37,6 +37,11 @@
 #![warn(unused_qualifications)]
 #![warn(variant_size_difference)]
 
+use rand::{rngs::SmallRng, thread_rng, SeedableRng};
+use rayon::prelude::*;
+use std::sync::Arc;
+use std::thread::available_parallelism;
+
 mod metric;
 mod min_queue;
 mod simulation;
@@ -45,52 +50,70 @@ use metric::{Metric, MetricType};
 use min_queue::MinQueue;
 use simulation::{ClientProfile, Server, Simulation};
 
-use std::sync::Arc;
+const TOTAL_SIMS: usize = 100_000;
 
-use std::thread;
+fn run_sim(
+    counter: usize,
+    servers: &[Arc<Server>],
+    profiles: &[Arc<ClientProfile>],
+    metrics: &[Metric],
+) {
+    let rng = Box::new(SmallRng::from_rng(thread_rng()).unwrap());
+    let mut sim = Simulation::new(rng);
 
-use rand::{rngs::SmallRng, thread_rng, SeedableRng};
+    for server in servers {
+        sim.add_server(server.clone());
+    }
 
-const N_THREADS: usize = 10_000;
+    for profile in profiles {
+        sim.add_client_profile(profile.clone());
+    }
+
+    for metric in metrics {
+        sim.add_metric(metric.clone());
+    }
+
+    sim.enable();
+
+    while sim.tick() {}
+
+    println!("Sim {counter} {:?}\n{}", sim.running(), sim.statistics());
+}
 
 fn main() {
-    let server = Arc::new(Server::default());
-    let mut profiles = vec![];
-    for _ in 0..100 {
-        profiles.push(Arc::new(ClientProfile::default()));
-    }
-    let metrics = vec![
-        Metric::with_target(MetricType::AbandonRate, 0.1),
-        Metric::with_target(MetricType::AverageSpeedAnswer, 15_000.0),
+    // We want to pin some cores, but not all the cores
+    let sim_threads = available_parallelism().unwrap().get() - 1;
+
+    //Setup a fairly safe thread pool.
+    rayon::ThreadPoolBuilder::new()
+        .num_threads(sim_threads)
+        .build_global()
+        .unwrap();
+
+    let servers = vec![Arc::new(Server::default())];
+    let profiles = vec![
+        Arc::new(ClientProfile {
+            quantity: 50,
+            handle_time: 150_000,
+            ..ClientProfile::default()
+        }),
+        Arc::new(ClientProfile {
+            handle_time: 300_000,
+            quantity: 50,
+            ..ClientProfile::default()
+        }),
     ];
 
-    let mut children = vec![];
-    for i in 0..N_THREADS {
-        let server = server.clone();
+    let metrics = vec![
+        Metric::with_target_f64(MetricType::AbandonRate, 0.1).unwrap(),
+        Metric::with_target_f64(MetricType::AverageSpeedAnswer, 15_000.0).unwrap(),
+        Metric::with_target_usize(MetricType::AnswerCount, 100).unwrap(),
+    ];
+
+    (0..TOTAL_SIMS).into_par_iter().for_each(|i| {
+        let servers = servers.clone();
         let profiles = profiles.clone();
         let metrics = metrics.clone();
-        children.push(thread::spawn(move || {
-            let rng = Box::new(SmallRng::from_rng(thread_rng()).unwrap());
-            let mut sim = Simulation::new(rng);
-            sim.add_server(server);
-
-            for profile in profiles {
-                sim.add_client_profile(profile);
-            }
-
-            for metric in metrics {
-                sim.add_metric(metric);
-            }
-
-            sim.enable();
-
-            while sim.tick() {}
-
-            println!("Thread {i} {:?}\n{}", sim.running(), sim.statistics());
-        }));
-    }
-
-    for child in children {
-        let _ = child.join();
-    }
+        run_sim(i, &servers, &profiles, &metrics);
+    });
 }

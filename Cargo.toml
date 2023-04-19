@@ -13,3 +13,4 @@ version = "0.1.0"
 
 [dependencies]
 rand = { version = "0.8.5", features = ['small_rng'] }
+rayon = "1.7"
