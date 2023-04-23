@@ -1,10 +1,11 @@
+use super::Attribute;
+use core::time::Duration;
+use std::cmp::Ordering;
+use std::sync::{atomic, atomic::AtomicUsize};
+
 mod queue;
 
 pub use queue::Queue;
-
-use super::Attribute;
-use std::cmp::Ordering;
-use std::sync::{atomic, atomic::AtomicUsize};
 
 static ID_COUNTER: AtomicUsize = AtomicUsize::new(0);
 
@@ -38,7 +39,7 @@ impl Server {
 #[derive(Debug, Default, Eq, PartialEq)]
 pub struct QueueableServer {
     server: Server,
-    pub tick: usize,
+    pub tick: Duration,
 }
 
 impl Ord for QueueableServer {
@@ -55,7 +56,10 @@ impl PartialOrd for QueueableServer {
 
 impl QueueableServer {
     pub fn new(server: Server) -> Self {
-        Self { server, tick: 0 }
+        Self {
+            server,
+            tick: Duration::ZERO,
+        }
     }
 
     pub fn server(&self) -> &Server {

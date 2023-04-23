@@ -1,9 +1,11 @@
+use core::time::Duration;
+
 use crate::{simulation::Request, Attribute};
 
 #[allow(dead_code)]
 pub struct RequestData {
     pub id: usize,
-    pub start: usize,
+    pub start: Duration,
     pub required_attributes: Vec<Attribute>,
 }
 

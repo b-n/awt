@@ -2,9 +2,11 @@ pub mod queue;
 
 pub use queue::Queue;
 
-use super::{Attribute, Client};
+use core::time::Duration;
 use std::cmp::Ordering;
 use std::sync::{atomic, atomic::AtomicUsize};
+
+use super::{Attribute, Client};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Status {
@@ -26,11 +28,11 @@ static ID_COUNTER: AtomicUsize = AtomicUsize::new(0);
 pub struct Request {
     id: usize,
     required_attributes: Vec<Attribute>,
-    start: usize,
-    abandon_ticks: usize,
-    handle_ticks: usize,
-    established: Option<usize>,
-    end: Option<usize>,
+    start: Duration,
+    abandon_ticks: Duration,
+    handle_ticks: Duration,
+    established: Option<Duration>,
+    end: Option<Duration>,
     status: Status,
     source: Client,
 }
@@ -50,9 +52,9 @@ impl PartialOrd for Request {
 impl Request {
     /// Generate a `Request` based on the provided ticks and attributes
     pub fn new(
-        start: usize,
-        abandon_ticks: usize,
-        handle_ticks: usize,
+        start: Duration,
+        abandon_ticks: Duration,
+        handle_ticks: Duration,
         required_attributes: Vec<Attribute>,
         source: &Client,
     ) -> Self {
@@ -80,7 +82,7 @@ impl Request {
 
     /// Returns the `start` tick of this client (when it should be enqueud).
     #[inline]
-    pub fn start(&self) -> usize {
+    pub fn start(&self) -> Duration {
         self.start
     }
 
@@ -100,33 +102,33 @@ impl Request {
         &self.status
     }
 
-    pub fn enqueue(&mut self, tick: usize) {
+    pub fn enqueue(&mut self, tick: Duration) {
         assert!(
-            tick == self.start,
-            "[REQUEST] {}. Unexpected Enqueue time. Expected: {}, Tried at: {}",
+            tick >= self.start,
+            "[REQUEST] {}. Unexpected Enqueue time. Expected: {:?}, Tried at: {:?}",
             self.id,
             self.start,
-            tick
+            tick,
         );
         self.status = Status::Enqueued;
-        //println!("[REQUEST] {} enqueued at {}", self.id, tick);
+        //println!("[REQUEST] {} enqueued at {:?}", self.id, tick);
     }
 
     // Returns whether the Request is continuing to wait
-    pub fn tick_wait(&mut self, tick: usize) -> bool {
+    pub fn tick_wait(&mut self, tick: Duration) -> bool {
         if Status::Enqueued != self.status {
             return false;
         }
 
         assert!(
             tick >= self.start,
-            "Cannot tick in the past. started: {}, current: {}",
+            "Cannot tick in the past. started: {:?}, current: {:?}",
             self.start,
             tick
         );
 
         if self.abandon_ticks <= tick {
-            //println!("[REQUEST] {} abandoned at {}", self.id, tick);
+            //println!("[REQUEST] {} abandoned at {:?}", self.id, tick);
             self.status = Status::Abandoned;
             self.end = Some(tick);
             false
@@ -135,7 +137,7 @@ impl Request {
         }
     }
 
-    pub fn handle(&mut self, tick: usize) -> usize {
+    pub fn handle(&mut self, tick: Duration) -> Duration {
         assert_eq!(
             Status::Enqueued,
             self.status,
@@ -144,12 +146,12 @@ impl Request {
 
         assert!(
             tick >= self.start,
-            "Cannot tick in the past. started: {}, current: {}",
+            "Cannot tick in the past. started: {:?}, current: {:?}",
             self.start,
             tick
         );
 
-        //println!("[REQUEST] {} handled at {}", self.id, tick);
+        //println!("[REQUEST] {} handled at {:?}", self.id, tick);
         self.established = Some(tick);
         let end = tick + self.handle_ticks;
         self.end = Some(end);
@@ -158,12 +160,12 @@ impl Request {
         end
     }
 
-    pub fn wait_time(&self) -> Option<usize> {
+    pub fn wait_time(&self) -> Option<Duration> {
         self.established.or(self.end).map(|t| t - self.start)
     }
 
     #[allow(dead_code)]
-    pub fn handle_time(&self) -> Option<usize> {
+    pub fn handle_time(&self) -> Option<Duration> {
         if Status::Answered == self.status {
             let established = self
                 .established
@@ -179,10 +181,12 @@ impl Request {
 mod tests {
     use super::*;
 
-    const ABANDON_TICKS: usize = 1000;
-    const HANDLE_TICKS: usize = 300_000;
+    const ABANDON_TICKS: Duration = Duration::new(1, 0);
+    const HANDLE_TICKS: Duration = Duration::new(300, 0);
+    const START_TIME: Duration = Duration::new(0, 100);
+    const ONE_MS: Duration = Duration::new(0, 1);
 
-    fn default_request(start: usize) -> (Request, usize) {
+    fn default_request(start: Duration) -> (Request, Duration) {
         let client = Client::default();
 
         let abandon_ticks = start + ABANDON_TICKS;
@@ -194,7 +198,7 @@ mod tests {
         )
     }
 
-    fn enqueued_request(start: usize) -> (Request, usize) {
+    fn enqueued_request(start: Duration) -> (Request, Duration) {
         let (mut request, abandon_ticks) = default_request(start);
 
         request.enqueue(start);
@@ -203,15 +207,15 @@ mod tests {
 
     #[test]
     fn default_status_is_pending() {
-        let (request, _) = default_request(0);
+        let (request, _) = default_request(Duration::ZERO);
         assert_eq!(&Status::Pending, request.status());
     }
 
     #[test]
     fn abandons_past_abandonment_tick() {
-        let (mut request, abandon_tick) = enqueued_request(100);
+        let (mut request, abandon_tick) = enqueued_request(START_TIME);
 
-        request.tick_wait(abandon_tick - 1);
+        request.tick_wait(abandon_tick - ONE_MS);
         assert_eq!(&Status::Enqueued, request.status());
         assert!(!request.tick_wait(abandon_tick));
         assert_eq!(&Status::Abandoned, request.status());
@@ -219,51 +223,51 @@ mod tests {
 
     #[test]
     fn only_ticks_when_unanswered() {
-        let (mut request, abandon_tick) = enqueued_request(100);
+        let (mut request, abandon_tick) = enqueued_request(START_TIME);
 
         request.tick_wait(abandon_tick);
 
-        assert!(!request.tick_wait(abandon_tick + 1));
+        assert!(!request.tick_wait(abandon_tick + ONE_MS));
     }
 
     #[should_panic]
     #[test]
     fn panics_ticking_in_past() {
-        let (mut request, _) = enqueued_request(100);
+        let (mut request, _) = enqueued_request(START_TIME);
 
-        request.tick_wait(99);
+        request.tick_wait(START_TIME - ONE_MS);
     }
 
     #[test]
     fn handling_handles() {
-        let (mut request, _) = enqueued_request(100);
+        let (mut request, _) = enqueued_request(START_TIME);
 
-        assert_eq!(100 + HANDLE_TICKS, request.handle(100));
+        assert_eq!(START_TIME + HANDLE_TICKS, request.handle(START_TIME));
         assert_eq!(&Status::Answered, request.status());
-        assert_eq!(Some(0), request.wait_time());
+        assert_eq!(Some(Duration::ZERO), request.wait_time());
     }
 
     #[should_panic]
     #[test]
     fn handle_only_when_enqueued() {
-        let (mut request, _) = default_request(100);
+        let (mut request, _) = enqueued_request(START_TIME);
 
         assert_eq!(&Status::Pending, request.status());
 
-        request.handle(120);
+        request.handle(START_TIME + (20 * ONE_MS));
     }
 
     #[should_panic]
     #[test]
     fn handling_only_works_in_future() {
-        let (mut request, _) = enqueued_request(100);
+        let (mut request, _) = enqueued_request(START_TIME);
 
-        request.handle(99);
+        request.handle(START_TIME - ONE_MS);
     }
 
     #[test]
     fn wait_time_abandoned() {
-        let (mut request, abandon_tick) = enqueued_request(100);
+        let (mut request, abandon_tick) = enqueued_request(START_TIME);
         request.tick_wait(abandon_tick);
 
         assert_eq!(&Status::Abandoned, request.status());
@@ -272,17 +276,17 @@ mod tests {
 
     #[test]
     fn wait_time_answered() {
-        let (mut request, _) = enqueued_request(100);
-        request.handle(200);
+        let (mut request, _) = enqueued_request(START_TIME);
+        request.handle(START_TIME * 2);
 
         assert_eq!(&Status::Answered, request.status());
-        assert_eq!(Some(100), request.wait_time());
+        assert_eq!(Some(START_TIME), request.wait_time());
     }
 
     #[test]
     fn wait_time_unanswered() {
-        let (mut request, _) = enqueued_request(100);
-        request.tick_wait(101);
+        let (mut request, _) = enqueued_request(START_TIME);
+        request.tick_wait(START_TIME + ONE_MS);
 
         assert_eq!(&Status::Enqueued, request.status());
         assert_eq!(None, request.wait_time());
@@ -290,8 +294,8 @@ mod tests {
 
     #[test]
     fn handle_time_unanswered() {
-        let (mut request, _) = enqueued_request(100);
-        request.tick_wait(101);
+        let (mut request, _) = enqueued_request(START_TIME);
+        request.tick_wait(START_TIME + ONE_MS);
 
         assert_eq!(&Status::Enqueued, request.status());
         assert_eq!(None, request.handle_time());
@@ -299,8 +303,8 @@ mod tests {
 
     #[test]
     fn handle_time_answered() {
-        let (mut request, _) = enqueued_request(100);
-        request.handle(200);
+        let (mut request, _) = enqueued_request(START_TIME);
+        request.handle(START_TIME * 2);
 
         assert_eq!(&Status::Answered, request.status());
         assert_eq!(Some(HANDLE_TICKS), request.handle_time());
@@ -308,7 +312,7 @@ mod tests {
 
     #[test]
     fn handle_time_abandonend() {
-        let (mut request, abandon_tick) = enqueued_request(100);
+        let (mut request, abandon_tick) = enqueued_request(START_TIME);
         request.tick_wait(abandon_tick);
 
         assert_eq!(&Status::Abandoned, request.status());

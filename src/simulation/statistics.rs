@@ -21,23 +21,23 @@ fn report(m: &mut Metric, r: &Ref<'_, Request>) {
         }
         MetricType::AverageWorkTime if &RequestStatus::Answered == r.status() => {
             if let Some(tick) = r.handle_time() {
-                m.report_usize(tick);
+                m.report_duration(tick);
             }
         }
         MetricType::AverageSpeedAnswer if &RequestStatus::Answered == r.status() => {
             if let Some(tick) = r.wait_time() {
-                m.report_usize(tick);
+                m.report_duration(tick);
             }
         }
         MetricType::AverageTimeToAbandon if &RequestStatus::Abandoned == r.status() => {
             if let Some(tick) = r.wait_time() {
-                m.report_usize(tick);
+                m.report_duration(tick);
             }
         }
         MetricType::AbandonRate => m.report_bool(&RequestStatus::Abandoned == r.status()),
         MetricType::AverageTimeInQueue => {
             if let Some(tick) = r.wait_time() {
-                m.report_usize(tick);
+                m.report_duration(tick);
             }
         }
         MetricType::AnswerCount if &RequestStatus::Answered == r.status() => m.report(),
@@ -51,10 +51,10 @@ impl Display for Statistics {
         for metric in self.metrics.values() {
             writeln!(
                 f,
-                "{:20} {:<5} {:?}",
+                "{:20} {:<5} {}",
                 format!("{:?}", metric.metric()),
                 metric.on_target(),
-                metric.value().unwrap_or(0.0)
+                metric
             )?;
         }
         Ok(())

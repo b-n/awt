@@ -1,10 +1,11 @@
-use super::{Request, Status};
-use crate::simulation::routing::RequestData;
-use crate::MinQueue;
-
+use core::time::Duration;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
+
+use super::{Request, Status};
+use crate::simulation::routing::RequestData;
+use crate::MinQueue;
 
 pub struct Queue {
     inner: Vec<Rc<RefCell<Request>>>,
@@ -37,7 +38,7 @@ impl Queue {
 
 // Ticking logic
 impl Queue {
-    pub fn tick(&mut self, tick: usize) {
+    pub fn tick(&mut self, tick: Duration) {
         // First tick the already waiting items, they cannot be assigned if they are already over
         // their waiting limit.
         self.tick_queued(tick);
@@ -45,7 +46,7 @@ impl Queue {
         self.tick_release_to_queue(tick);
     }
 
-    fn tick_queued(&mut self, tick: usize) {
+    fn tick_queued(&mut self, tick: Duration) {
         self.waiting.retain(|_, (request, _)| {
             let mut request = request.borrow_mut();
             request.tick_wait(tick);
@@ -53,11 +54,11 @@ impl Queue {
         });
     }
 
-    fn tick_release_to_queue(&mut self, tick: usize) {
+    fn tick_release_to_queue(&mut self, tick: Duration) {
         while self
             .enqueued
             .peek()
-            .map_or(usize::MAX, |c| c.borrow().start())
+            .map_or(Duration::MAX, |c| c.borrow().start())
             <= tick
         {
             let next_request = self
@@ -75,7 +76,7 @@ impl Queue {
         }
     }
 
-    pub fn next_tick(&self) -> Option<usize> {
+    pub fn next_tick(&self) -> Option<Duration> {
         self.enqueued.peek().map(|c| c.borrow().start())
     }
 }
@@ -94,7 +95,7 @@ impl Queue {
         self.waiting.values().map(|(_, r)| r).collect()
     }
 
-    pub fn handle_request(&mut self, id: usize, tick: usize) -> usize {
+    pub fn handle_request(&mut self, id: usize, tick: Duration) -> Duration {
         // TODO: This is not safe since id might not exist
         let mut request = self
             .waiting

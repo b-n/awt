@@ -37,6 +37,7 @@
 #![warn(unused_qualifications)]
 #![warn(variant_size_difference)]
 
+use core::time::Duration;
 use rand::{rngs::SmallRng, thread_rng, SeedableRng};
 use rayon::prelude::*;
 use std::thread::available_parallelism;
@@ -97,11 +98,11 @@ fn main() {
     let profiles = vec![
         ClientProfile {
             quantity: 50,
-            handle_time: 150_000,
+            handle_time: Duration::new(150, 0),
             ..ClientProfile::default()
         },
         ClientProfile {
-            handle_time: 300_000,
+            handle_time: Duration::new(300, 0),
             quantity: 50,
             ..ClientProfile::default()
         },
@@ -109,7 +110,7 @@ fn main() {
 
     let metrics = vec![
         Metric::with_target_f64(MetricType::AbandonRate, 0.1).unwrap(),
-        Metric::with_target_f64(MetricType::AverageSpeedAnswer, 15_000.0).unwrap(),
+        Metric::with_target_duration(MetricType::AverageSpeedAnswer, Duration::new(15, 0)).unwrap(),
         Metric::with_target_usize(MetricType::AnswerCount, 100).unwrap(),
     ];
 

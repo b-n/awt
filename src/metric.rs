@@ -1,3 +1,5 @@
+use core::time::Duration;
+
 // TODO: Metrics come in different flavours. The metrics should really wrap these types since they
 // have different targets etc e.g.
 // - Percentile (ServiceLevel + Abandonrate)
@@ -10,7 +12,7 @@
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
 pub enum MetricType {
     /// Percent of `Client`s answered in `tick`.
-    ServiceLevel(usize),
+    ServiceLevel(Duration),
     /// Mean of work time of answered `Request`.
     AverageWorkTime,
     /// Mean for `tick` of answered `Request`.
@@ -34,46 +36,53 @@ pub enum Aggregate {
     Percentable(Percentable),
 }
 
+impl std::fmt::Display for Aggregate {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Meanable(a) => write!(f, "{a}"),
+            Self::Countable(a) => write!(f, "{a}"),
+            Self::Percentable(a) => write!(f, "{a}"),
+        }
+    }
+}
+
 // Meanable are metrics which we count a total of ticks for, and we want the average of those values
 // Report: Just provide a value. a usize report_usize(value: usize)
 #[derive(Clone, Debug)]
 pub struct Meanable {
-    sum: usize,
-    count: usize,
-    target: f64,
+    sum: Duration,
+    count: u32,
+    target: Duration,
+}
+
+impl std::fmt::Display for Meanable {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if self.count == 0 {
+            return write!(f, "None");
+        }
+
+        write!(f, "{:?}", self.sum / self.count)
+    }
 }
 
 impl Meanable {
-    pub fn report_usize(&mut self, value: usize) {
+    pub fn report_duration(&mut self, value: Duration) {
         self.sum += value;
         self.count += 1;
     }
 
-    pub fn with_target(target: f64) -> Self {
+    pub fn with_target(target: Duration) -> Self {
         Self {
-            sum: 0,
+            sum: Duration::ZERO,
             count: 0,
             target,
         }
     }
 
-    #[allow(clippy::cast_precision_loss)]
-    pub fn value(&self) -> Option<f64> {
-        if self.count == 0 {
-            return None;
-        }
-
-        let sum = self.sum as f64;
-        let count = self.sum as f64;
-
-        Some(sum / count)
-    }
-
-    #[allow(clippy::cast_precision_loss)]
     pub fn on_target(&self) -> bool {
         match self.count {
             0 => false,
-            _ => self.target < (self.sum as f64 / self.count as f64),
+            _ => self.target < (self.sum / self.count),
         }
     }
 }
@@ -86,6 +95,12 @@ pub struct Countable {
     target: usize,
 }
 
+impl std::fmt::Display for Countable {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.count)
+    }
+}
+
 impl Countable {
     pub fn report(&mut self) {
         self.count += 1;
@@ -93,11 +108,6 @@ impl Countable {
 
     pub fn with_target(target: usize) -> Self {
         Self { count: 0, target }
-    }
-
-    #[allow(clippy::unnecessary_wraps)]
-    pub fn value(&self) -> Option<usize> {
-        Some(self.count)
     }
 
     pub fn on_target(&self) -> bool {
@@ -119,6 +129,17 @@ pub struct Percentable {
     target: f64,
 }
 
+impl std::fmt::Display for Percentable {
+    #[allow(clippy::cast_precision_loss)]
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if self.count == 0 {
+            return write!(f, "None");
+        }
+
+        write!(f, "{}", self.sum as f64 / self.count as f64)
+    }
+}
+
 impl Percentable {
     pub fn report_bool(&mut self, value: bool) {
         if value {
@@ -136,17 +157,6 @@ impl Percentable {
     }
 
     #[allow(clippy::cast_precision_loss)]
-    pub fn value(&self) -> Option<f64> {
-        if self.count == 0 {
-            return None;
-        }
-        let sum = self.sum as f64;
-        let count = self.count as f64;
-
-        Some(sum / count)
-    }
-
-    #[allow(clippy::cast_precision_loss)]
     pub fn on_target(&self) -> bool {
         match self.count {
             0 => false,
@@ -161,6 +171,12 @@ pub struct Metric {
     aggregate: Aggregate,
 }
 
+impl std::fmt::Display for Metric {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.aggregate)
+    }
+}
+
 #[allow(clippy::module_name_repetitions)]
 #[derive(Clone, Debug)]
 pub struct MetricError {}
@@ -168,7 +184,10 @@ pub struct MetricError {}
 // Structure and setup
 impl Metric {
     #[allow(clippy::match_wildcard_for_single_variants)]
-    pub fn with_target_f64(metric_type: MetricType, target: f64) -> Result<Self, MetricError> {
+    pub fn with_target_duration(
+        metric_type: MetricType,
+        target: Duration,
+    ) -> Result<Self, MetricError> {
         match metric_type {
             MetricType::AverageWorkTime
             | MetricType::AverageSpeedAnswer
@@ -177,6 +196,13 @@ impl Metric {
                 metric_type,
                 aggregate: Aggregate::Meanable(Meanable::with_target(target)),
             }),
+            _ => Err(MetricError {}),
+        }
+    }
+
+    #[allow(clippy::match_wildcard_for_single_variants)]
+    pub fn with_target_f64(metric_type: MetricType, target: f64) -> Result<Self, MetricError> {
+        match metric_type {
             MetricType::UtilisationTime | MetricType::ServiceLevel(_) | MetricType::AbandonRate => {
                 Ok(Self {
                     metric_type,
@@ -199,15 +225,6 @@ impl Metric {
 
     pub fn metric(&self) -> MetricType {
         self.metric_type
-    }
-
-    #[allow(clippy::cast_precision_loss)]
-    pub fn value(&self) -> Option<f64> {
-        match &self.aggregate {
-            Aggregate::Meanable(a) => a.value(),
-            Aggregate::Percentable(a) => a.value(),
-            Aggregate::Countable(a) => a.value().map(|v| v as f64),
-        }
     }
 
     pub fn on_target(&self) -> bool {
@@ -235,9 +252,9 @@ impl Metric {
         }
     }
 
-    pub fn report_usize(&mut self, value: usize) {
+    pub fn report_duration(&mut self, value: Duration) {
         match &mut self.aggregate {
-            Aggregate::Meanable(a) => a.report_usize(value),
+            Aggregate::Meanable(a) => a.report_duration(value),
             _ => todo!(),
         }
     }

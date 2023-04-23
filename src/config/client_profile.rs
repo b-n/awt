@@ -1,3 +1,5 @@
+use core::time::Duration;
+
 use crate::Attribute;
 use crate::Client;
 
@@ -5,9 +7,9 @@ use crate::Client;
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ClientProfile {
     pub required_attributes: Vec<Attribute>,
-    pub handle_time: usize,
-    pub clean_up_time: usize,
-    pub abandon_time: usize,
+    pub handle_time: Duration,
+    pub clean_up_time: Duration,
+    pub abandon_time: Duration,
     pub quantity: usize,
 }
 

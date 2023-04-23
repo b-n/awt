@@ -1,13 +1,17 @@
-use crate::Attribute;
+use core::time::Duration;
 
 use super::ClientProfile;
+use crate::Attribute;
+
+const FIVE_MINUTES: Duration = Duration::new(300, 0);
+const THIRTY_SECONDS: Duration = Duration::new(30, 0);
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Client {
     pub required_attributes: Vec<Attribute>,
-    pub handle_time: usize,
-    pub clean_up_time: usize,
-    pub abandon_time: usize,
+    pub handle_time: Duration,
+    pub clean_up_time: Duration,
+    pub abandon_time: Duration,
 }
 
 impl From<&ClientProfile> for Client {
@@ -25,9 +29,9 @@ impl Default for Client {
     fn default() -> Self {
         Self {
             required_attributes: vec![],
-            handle_time: 300_000,
-            clean_up_time: 0,
-            abandon_time: 30_000,
+            handle_time: FIVE_MINUTES,
+            clean_up_time: Duration::ZERO,
+            abandon_time: THIRTY_SECONDS,
         }
     }
 }

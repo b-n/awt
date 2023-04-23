@@ -1,10 +1,11 @@
-use super::QueueableServer;
-use crate::simulation::routing::ServerData;
-use crate::MinQueue;
-
+use core::time::Duration;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
+
+use super::QueueableServer;
+use crate::simulation::routing::ServerData;
+use crate::MinQueue;
 
 pub struct Queue {
     inner: Vec<Rc<RefCell<QueueableServer>>>,
@@ -41,8 +42,13 @@ impl Queue {
 
 // Logic relevant for progressing and selecting items from the queue
 impl Queue {
-    pub fn tick(&mut self, tick: usize) {
-        while self.enqueued.peek().map_or(usize::MAX, |s| s.borrow().tick) <= tick {
+    pub fn tick(&mut self, tick: Duration) {
+        while self
+            .enqueued
+            .peek()
+            .map_or(Duration::MAX, |s| s.borrow().tick)
+            <= tick
+        {
             let next_server = self
                 .enqueued
                 .pop()
@@ -57,7 +63,7 @@ impl Queue {
         }
     }
 
-    pub fn next_tick(&self) -> Option<usize> {
+    pub fn next_tick(&self) -> Option<Duration> {
         self.enqueued.peek().map(|c| c.borrow().tick)
     }
 }
@@ -68,7 +74,7 @@ impl Queue {
         self.waiting.values().map(|(_, s)| s).collect()
     }
 
-    pub fn enqueue(&mut self, id: usize, until: usize) {
+    pub fn enqueue(&mut self, id: usize, until: Duration) {
         // TODO: Safely chceck that the server_queue has this server_id
         let (server, _) = self
             .waiting
