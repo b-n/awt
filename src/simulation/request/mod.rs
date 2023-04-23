@@ -4,7 +4,7 @@ pub use queue::Queue;
 
 use super::{Attribute, ClientProfile};
 use std::cmp::Ordering;
-use std::sync::{atomic, atomic::AtomicUsize, Arc};
+use std::sync::{atomic, atomic::AtomicUsize};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Status {
@@ -32,7 +32,7 @@ pub struct Request {
     established: Option<usize>,
     end: Option<usize>,
     status: Status,
-    source: Arc<ClientProfile>,
+    source: ClientProfile,
 }
 
 impl Ord for Request {
@@ -54,7 +54,7 @@ impl Request {
         abandon_ticks: usize,
         handle_ticks: usize,
         required_attributes: Vec<Attribute>,
-        source: Arc<ClientProfile>,
+        source: &ClientProfile,
     ) -> Self {
         Self {
             id: ID_COUNTER.fetch_add(1, atomic::Ordering::SeqCst),
@@ -65,7 +65,7 @@ impl Request {
             established: None,
             end: None,
             status: Status::default(),
-            source,
+            source: source.clone(),
         }
     }
 
@@ -183,13 +183,13 @@ mod tests {
     const HANDLE_TICKS: usize = 300_000;
 
     fn default_request(start: usize) -> (Request, usize) {
-        let client_profile = Arc::new(ClientProfile::default());
+        let client_profile = ClientProfile::default();
 
         let abandon_ticks = start + ABANDON_TICKS;
         let handle_ticks = HANDLE_TICKS;
 
         (
-            Request::new(start, abandon_ticks, handle_ticks, vec![], client_profile),
+            Request::new(start, abandon_ticks, handle_ticks, vec![], &client_profile),
             abandon_ticks,
         )
     }

@@ -4,7 +4,7 @@ pub use queue::Queue;
 
 use super::Attribute;
 use std::cmp::Ordering;
-use std::sync::{atomic, atomic::AtomicUsize, Arc};
+use std::sync::{atomic, atomic::AtomicUsize};
 
 static ID_COUNTER: AtomicUsize = AtomicUsize::new(0);
 
@@ -37,7 +37,7 @@ impl Server {
 #[allow(clippy::module_name_repetitions)]
 #[derive(Debug, Default, Eq, PartialEq)]
 pub struct QueueableServer {
-    server: Arc<Server>,
+    server: Server,
     pub tick: usize,
 }
 
@@ -54,11 +54,14 @@ impl PartialOrd for QueueableServer {
 }
 
 impl QueueableServer {
-    pub fn new(server: Arc<Server>) -> Self {
-        Self { server, tick: 0 }
+    pub fn new(server: &Server) -> Self {
+        Self {
+            server: server.clone(),
+            tick: 0,
+        }
     }
 
-    pub fn server(&self) -> &Arc<Server> {
+    pub fn server(&self) -> &Server {
         &self.server
     }
 }

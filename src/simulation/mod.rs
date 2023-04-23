@@ -6,7 +6,6 @@ mod server;
 mod statistics;
 
 use rand::{Rng, RngCore};
-use std::sync::Arc;
 
 pub use attribute::Attribute;
 pub use client_profile::ClientProfile;
@@ -25,7 +24,7 @@ pub struct Simulation {
     tick_size: usize,
     tick_until: usize,
     running: bool,
-    client_profiles: Vec<Arc<ClientProfile>>,
+    client_profiles: Vec<ClientProfile>,
     request_queue: RequestQueue,
     server_queue: ServerQueue,
     statistics: Statistics,
@@ -50,7 +49,7 @@ impl Simulation {
 
 // Structure and setup
 impl Simulation {
-    pub fn add_server(&mut self, server: Arc<Server>) {
+    pub fn add_server(&mut self, server: &Server) {
         assert!(
             !self.running,
             "Servers can only be added whilst the simulation is stopped"
@@ -59,13 +58,13 @@ impl Simulation {
         self.server_queue.push(QueueableServer::new(server));
     }
 
-    pub fn add_client_profile(&mut self, client_profile: Arc<ClientProfile>) {
+    pub fn add_client_profile(&mut self, client_profile: &ClientProfile) {
         assert!(
             !self.running,
             "Client Profiles can only be added whilst the simulation is stopped"
         );
 
-        self.client_profiles.push(client_profile);
+        self.client_profiles.push(client_profile.clone());
     }
 
     /// Enables the `Simulation`, generating all the internal state required for running. A
@@ -89,13 +88,13 @@ impl Simulation {
         (self.running, self.tick)
     }
 
-    pub fn add_metric(&mut self, metric: Metric) {
+    pub fn add_metric(&mut self, metric: &Metric) {
         assert!(
             !self.running,
             "Cannot add metric whilst simulation is in progress"
         );
 
-        self.statistics.push(metric);
+        self.statistics.push(metric.clone());
     }
 
     /// Returns the `Statistics` object for this simulation.
@@ -114,7 +113,7 @@ impl Simulation {
 // Generators and state modifiers
 impl Simulation {
     fn generate_requests(&mut self) {
-        let mut request_from_client_profile = |cp: &Arc<ClientProfile>| -> Request {
+        let mut request_from_client_profile = |cp: &ClientProfile| -> Request {
             let start = self.rng.gen_range(0..=self.tick_until);
             let abandon_ticks = start + cp.abandon_time;
             let handle_ticks = cp.handle_time;
@@ -124,7 +123,7 @@ impl Simulation {
                 abandon_ticks,
                 handle_ticks,
                 cp.required_attributes.clone(),
-                cp.clone(),
+                cp,
             )
         };
 
@@ -254,8 +253,8 @@ mod tests {
     fn no_servers() {
         let mut sim = simulation();
 
-        let client_profile = Arc::new(ClientProfile::default());
-        sim.add_client_profile(client_profile);
+        let client_profile = ClientProfile::default();
+        sim.add_client_profile(&client_profile);
 
         sim.enable();
 
@@ -277,11 +276,11 @@ mod tests {
     fn can_handle_requests() {
         let mut sim = simulation();
 
-        let client_profile = Arc::new(ClientProfile::default());
-        sim.add_client_profile(client_profile);
+        let client_profile = ClientProfile::default();
+        sim.add_client_profile(&client_profile);
 
-        let server = Arc::new(Server::default());
-        sim.add_server(server);
+        let server = Server::default();
+        sim.add_server(&server);
 
         sim.enable();
 
@@ -304,15 +303,15 @@ mod tests {
         let mut sim = simulation();
 
         // Ensure two requests are provided in a way that the second cannot be handled in time
-        let client_profile = Arc::new(ClientProfile {
+        let client_profile = ClientProfile {
             handle_time: TICKS_PER_SECOND * 300,
             ..ClientProfile::default()
-        });
-        sim.add_client_profile(client_profile.clone());
-        sim.add_client_profile(client_profile);
+        };
+        sim.add_client_profile(&client_profile);
+        sim.add_client_profile(&client_profile);
 
-        let server = Arc::new(Server::default());
-        sim.add_server(server);
+        let server = Server::default();
+        sim.add_server(&server);
 
         sim.enable();
 
@@ -338,8 +337,8 @@ mod tests {
         sim.enable();
 
         // Cannot add profile to running sim
-        let client_profile = Arc::new(ClientProfile::default());
-        sim.add_client_profile(client_profile);
+        let client_profile = ClientProfile::default();
+        sim.add_client_profile(&client_profile);
     }
 
     #[test]
@@ -358,7 +357,7 @@ mod tests {
         let mut sim = Simulation::new(mock_rng());
         sim.enable();
 
-        let server = Arc::new(Server::default());
-        sim.add_server(server);
+        let server = Server::default();
+        sim.add_server(&server);
     }
 }

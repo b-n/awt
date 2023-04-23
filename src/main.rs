@@ -39,7 +39,6 @@
 
 use rand::{rngs::SmallRng, thread_rng, SeedableRng};
 use rayon::prelude::*;
-use std::sync::Arc;
 use std::thread::available_parallelism;
 
 mod metric;
@@ -52,25 +51,20 @@ use simulation::{ClientProfile, Server, Simulation};
 
 const TOTAL_SIMS: usize = 100_000;
 
-fn run_sim(
-    counter: usize,
-    servers: &[Arc<Server>],
-    profiles: &[Arc<ClientProfile>],
-    metrics: &[Metric],
-) {
+fn run_sim(counter: usize, servers: &[Server], profiles: &[ClientProfile], metrics: &[Metric]) {
     let rng = Box::new(SmallRng::from_rng(thread_rng()).unwrap());
     let mut sim = Simulation::new(rng);
 
     for server in servers {
-        sim.add_server(server.clone());
+        sim.add_server(server);
     }
 
     for profile in profiles {
-        sim.add_client_profile(profile.clone());
+        sim.add_client_profile(profile);
     }
 
     for metric in metrics {
-        sim.add_metric(metric.clone());
+        sim.add_metric(metric);
     }
 
     sim.enable();
@@ -90,18 +84,18 @@ fn main() {
         .build_global()
         .unwrap();
 
-    let servers = vec![Arc::new(Server::default())];
+    let servers = vec![Server::default()];
     let profiles = vec![
-        Arc::new(ClientProfile {
+        ClientProfile {
             quantity: 50,
             handle_time: 150_000,
             ..ClientProfile::default()
-        }),
-        Arc::new(ClientProfile {
+        },
+        ClientProfile {
             handle_time: 300_000,
             quantity: 50,
             ..ClientProfile::default()
-        }),
+        },
     ];
 
     let metrics = vec![
@@ -110,10 +104,7 @@ fn main() {
         Metric::with_target_usize(MetricType::AnswerCount, 100).unwrap(),
     ];
 
-    (0..TOTAL_SIMS).into_par_iter().for_each(|i| {
-        let servers = servers.clone();
-        let profiles = profiles.clone();
-        let metrics = metrics.clone();
-        run_sim(i, &servers, &profiles, &metrics);
+    (0..TOTAL_SIMS).into_par_iter().for_each(|sim| {
+        run_sim(sim, &servers, &profiles, &metrics);
     });
 }
