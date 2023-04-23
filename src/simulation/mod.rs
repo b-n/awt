@@ -1,3 +1,4 @@
+mod client;
 mod request;
 mod routing;
 mod server;
@@ -5,6 +6,7 @@ mod statistics;
 
 use rand::{Rng, RngCore};
 
+pub use client::Client;
 pub use request::{Queue as RequestQueue, Request, Status as RequestStatus};
 pub use server::{Queue as ServerQueue, QueueableServer, Server};
 pub use statistics::Statistics;
@@ -20,7 +22,7 @@ pub struct Simulation {
     tick_size: usize,
     tick_until: usize,
     running: bool,
-    client_profiles: Vec<ClientProfile>,
+    clients: Vec<Client>,
     request_queue: RequestQueue,
     server_queue: ServerQueue,
     statistics: Statistics,
@@ -34,7 +36,7 @@ impl Simulation {
             tick_size: 1,
             tick_until: ONE_HOUR,
             running: false,
-            client_profiles: vec![],
+            clients: vec![],
             request_queue: RequestQueue::new(),
             server_queue: ServerQueue::new(),
             statistics: Statistics::default(),
@@ -54,13 +56,13 @@ impl Simulation {
         self.server_queue.push(QueueableServer::new(server));
     }
 
-    pub fn add_client_profile(&mut self, client_profile: &ClientProfile) {
+    pub fn add_client(&mut self, client: &Client) {
         assert!(
             !self.running,
             "Client Profiles can only be added whilst the simulation is stopped"
         );
 
-        self.client_profiles.push(client_profile.clone());
+        self.clients.push(client.clone());
     }
 
     /// Enables the `Simulation`, generating all the internal state required for running. A
@@ -109,24 +111,22 @@ impl Simulation {
 // Generators and state modifiers
 impl Simulation {
     fn generate_requests(&mut self) {
-        let mut request_from_client_profile = |cp: &ClientProfile| -> Request {
+        let mut request_from_client = |c: &Client| -> Request {
             let start = self.rng.gen_range(0..=self.tick_until);
-            let abandon_ticks = start + cp.abandon_time;
-            let handle_ticks = cp.handle_time;
+            let abandon_ticks = start + c.abandon_time;
+            let handle_ticks = c.handle_time;
 
             Request::new(
                 start,
                 abandon_ticks,
                 handle_ticks,
-                cp.required_attributes.clone(),
-                cp,
+                c.required_attributes.clone(),
+                c,
             )
         };
 
-        for cp in &self.client_profiles {
-            for _ in 0..cp.quantity {
-                self.request_queue.push(request_from_client_profile(cp));
-            }
+        for client in &self.clients {
+            self.request_queue.push(request_from_client(client));
         }
     }
 }
@@ -249,8 +249,8 @@ mod tests {
     fn no_servers() {
         let mut sim = simulation();
 
-        let client_profile = ClientProfile::default();
-        sim.add_client_profile(&client_profile);
+        let client = Client::default();
+        sim.add_client(&client);
 
         sim.enable();
 
@@ -272,8 +272,8 @@ mod tests {
     fn can_handle_requests() {
         let mut sim = simulation();
 
-        let client_profile = ClientProfile::default();
-        sim.add_client_profile(&client_profile);
+        let client = Client::default();
+        sim.add_client(&client);
 
         let server = Server::default();
         sim.add_server(&server);
@@ -299,12 +299,12 @@ mod tests {
         let mut sim = simulation();
 
         // Ensure two requests are provided in a way that the second cannot be handled in time
-        let client_profile = ClientProfile {
+        let client = Client {
             handle_time: TICKS_PER_SECOND * 300,
-            ..ClientProfile::default()
+            ..Client::default()
         };
-        sim.add_client_profile(&client_profile);
-        sim.add_client_profile(&client_profile);
+        sim.add_client(&client);
+        sim.add_client(&client);
 
         let server = Server::default();
         sim.add_server(&server);
@@ -333,8 +333,8 @@ mod tests {
         sim.enable();
 
         // Cannot add profile to running sim
-        let client_profile = ClientProfile::default();
-        sim.add_client_profile(&client_profile);
+        let client = Client::default();
+        sim.add_client(&client);
     }
 
     #[test]

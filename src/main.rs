@@ -51,11 +51,13 @@ use attribute::Attribute;
 use config::ClientProfile;
 use metric::{Metric, MetricType};
 use min_queue::MinQueue;
-use simulation::{Server, Simulation};
+use simulation::{Client, Server, Simulation};
 
 const TOTAL_SIMS: usize = 100_000;
 
 fn run_sim(counter: usize, servers: &[Server], profiles: &[ClientProfile], metrics: &[Metric]) {
+    // Rust docs says we can trust this won't fail 🤞
+    // Ref: https://docs.rs/rand/latest/rand/rngs/struct.SmallRng.html#examples
     let rng = Box::new(SmallRng::from_rng(thread_rng()).unwrap());
     let mut sim = Simulation::new(rng);
 
@@ -64,7 +66,10 @@ fn run_sim(counter: usize, servers: &[Server], profiles: &[ClientProfile], metri
     }
 
     for profile in profiles {
-        sim.add_client_profile(profile);
+        (0..profile.quantity).for_each(|_| {
+            let client = Client::from(profile);
+            sim.add_client(&client);
+        });
     }
 
     for metric in metrics {

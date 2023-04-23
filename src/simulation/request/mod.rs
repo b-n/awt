@@ -2,7 +2,7 @@ pub mod queue;
 
 pub use queue::Queue;
 
-use super::{Attribute, ClientProfile};
+use super::{Attribute, Client};
 use std::cmp::Ordering;
 use std::sync::{atomic, atomic::AtomicUsize};
 
@@ -32,7 +32,7 @@ pub struct Request {
     established: Option<usize>,
     end: Option<usize>,
     status: Status,
-    source: ClientProfile,
+    source: Client,
 }
 
 impl Ord for Request {
@@ -54,7 +54,7 @@ impl Request {
         abandon_ticks: usize,
         handle_ticks: usize,
         required_attributes: Vec<Attribute>,
-        source: &ClientProfile,
+        source: &Client,
     ) -> Self {
         Self {
             id: ID_COUNTER.fetch_add(1, atomic::Ordering::SeqCst),
@@ -109,7 +109,7 @@ impl Request {
             tick
         );
         self.status = Status::Enqueued;
-        println!("[REQUEST] {} enqueued at {}", self.id, tick);
+        //println!("[REQUEST] {} enqueued at {}", self.id, tick);
     }
 
     // Returns whether the Request is continuing to wait
@@ -126,7 +126,7 @@ impl Request {
         );
 
         if self.abandon_ticks <= tick {
-            println!("[REQUEST] {} abandoned at {}", self.id, tick);
+            //println!("[REQUEST] {} abandoned at {}", self.id, tick);
             self.status = Status::Abandoned;
             self.end = Some(tick);
             false
@@ -149,7 +149,7 @@ impl Request {
             tick
         );
 
-        println!("[REQUEST] {} handled at {}", self.id, tick);
+        //println!("[REQUEST] {} handled at {}", self.id, tick);
         self.established = Some(tick);
         let end = tick + self.handle_ticks;
         self.end = Some(end);
@@ -183,13 +183,13 @@ mod tests {
     const HANDLE_TICKS: usize = 300_000;
 
     fn default_request(start: usize) -> (Request, usize) {
-        let client_profile = ClientProfile::default();
+        let client = Client::default();
 
         let abandon_ticks = start + ABANDON_TICKS;
         let handle_ticks = HANDLE_TICKS;
 
         (
-            Request::new(start, abandon_ticks, handle_ticks, vec![], &client_profile),
+            Request::new(start, abandon_ticks, handle_ticks, vec![], &client),
             abandon_ticks,
         )
     }

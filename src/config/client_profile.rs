@@ -1,4 +1,5 @@
 use crate::Attribute;
+use crate::Client;
 
 #[allow(dead_code)]
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -12,12 +13,13 @@ pub struct ClientProfile {
 
 impl Default for ClientProfile {
     fn default() -> Self {
+        let client = Client::default();
         Self {
-            required_attributes: vec![],
+            required_attributes: client.required_attributes.clone(),
             quantity: 1,
-            handle_time: 300_000,
-            clean_up_time: 0,
-            abandon_time: 30_000,
+            handle_time: client.handle_time,
+            clean_up_time: client.clean_up_time,
+            abandon_time: client.abandon_time,
         }
     }
 }
