@@ -2,7 +2,6 @@
 
 Simulate requests being made to servers, but do it real quick.
 
-
 Requests follow poisson distribution rules - e.g. they are all random events that are indenpendant
 from each other.
 
@@ -10,9 +9,11 @@ from each other.
 
 - [Simulation] Period - The total length of the period being simulated.
 - Client = The thing that makes the request
-- Server = The thing that handles the request
 - Request = The actual unit of work that is being performed
-- Attribute = Conditions that the Server must meet that the Client provides.
+- Server = The thing that handles the request
+- ClientProfile = A configuration object which can be used to create Clients
+- ServerProifle = A configuration object which can be used to create Servers
+- Attribute = Conditions that the Server must meet that the Client requires.
 
 ## Simulation
 
@@ -32,7 +33,7 @@ the server in order to facilitate the connection.
 Routing can be provided by matching the current state of the servers with the incoming request.
 
 Knowns:
-- The attributes the client request requires
+- The attributes the client requires
 - The available attributes on all servers
 - The current wait time of the request
 
@@ -69,7 +70,7 @@ the value does not change when the connection is finished.
 
 ## Traits
 
-### TimedQueue
+### TimedQueue (Idea)
 
 The simulation requires certain things to happen at certain times, and this applies for both servers
 and for requests. As such, it'd be nice to wrap this shared logic in some kind of timedqueue trait.
