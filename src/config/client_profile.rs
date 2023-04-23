@@ -1,4 +1,4 @@
-use super::Attribute;
+use crate::Attribute;
 
 #[allow(dead_code)]
 #[derive(Debug, Clone, PartialEq, Eq)]

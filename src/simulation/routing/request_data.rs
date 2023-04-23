@@ -1,4 +1,4 @@
-use crate::simulation::{attribute::Attribute, request::Request};
+use crate::{simulation::Request, Attribute};
 
 #[allow(dead_code)]
 pub struct RequestData {

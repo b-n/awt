@@ -41,13 +41,17 @@ use rand::{rngs::SmallRng, thread_rng, SeedableRng};
 use rayon::prelude::*;
 use std::thread::available_parallelism;
 
+mod attribute;
+mod config;
 mod metric;
 mod min_queue;
 mod simulation;
 
+use attribute::Attribute;
+use config::ClientProfile;
 use metric::{Metric, MetricType};
 use min_queue::MinQueue;
-use simulation::{ClientProfile, Server, Simulation};
+use simulation::{Server, Simulation};
 
 const TOTAL_SIMS: usize = 100_000;
 

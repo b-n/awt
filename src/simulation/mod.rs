@@ -1,5 +1,3 @@
-mod attribute;
-mod client_profile;
 mod request;
 mod routing;
 mod server;
@@ -7,13 +5,11 @@ mod statistics;
 
 use rand::{Rng, RngCore};
 
-pub use attribute::Attribute;
-pub use client_profile::ClientProfile;
 pub use request::{Queue as RequestQueue, Request, Status as RequestStatus};
 pub use server::{Queue as ServerQueue, QueueableServer, Server};
 pub use statistics::Statistics;
 
-use crate::metric::Metric;
+use crate::{Attribute, ClientProfile, Metric};
 use routing::route_requests;
 
 pub const TICKS_PER_SECOND: usize = 1000;
