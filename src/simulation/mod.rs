@@ -47,7 +47,7 @@ impl Simulation {
 
 // Structure and setup
 impl Simulation {
-    pub fn add_server(&mut self, server: &Server) {
+    pub fn add_server(&mut self, server: Server) {
         assert!(
             !self.running,
             "Servers can only be added whilst the simulation is stopped"
@@ -56,13 +56,22 @@ impl Simulation {
         self.server_queue.push(QueueableServer::new(server));
     }
 
-    pub fn add_client(&mut self, client: &Client) {
+    pub fn add_client(&mut self, client: Client) {
         assert!(
             !self.running,
             "Client Profiles can only be added whilst the simulation is stopped"
         );
 
-        self.clients.push(client.clone());
+        self.clients.push(client);
+    }
+
+    pub fn add_metric(&mut self, metric: Metric) {
+        assert!(
+            !self.running,
+            "Cannot add metric whilst simulation is in progress"
+        );
+
+        self.statistics.push(metric);
     }
 
     /// Enables the `Simulation`, generating all the internal state required for running. A
@@ -84,15 +93,6 @@ impl Simulation {
     #[allow(dead_code)]
     pub fn running(&self) -> (bool, usize) {
         (self.running, self.tick)
-    }
-
-    pub fn add_metric(&mut self, metric: &Metric) {
-        assert!(
-            !self.running,
-            "Cannot add metric whilst simulation is in progress"
-        );
-
-        self.statistics.push(metric.clone());
     }
 
     /// Returns the `Statistics` object for this simulation.
@@ -219,8 +219,8 @@ mod tests {
     fn simulation() -> Simulation {
         let mut sim = Simulation::new(mock_rng());
 
-        sim.add_metric(&Metric::with_target_f64(MetricType::AbandonRate, 0.0).unwrap());
-        sim.add_metric(&Metric::with_target_usize(MetricType::AnswerCount, 0).unwrap());
+        sim.add_metric(Metric::with_target_f64(MetricType::AbandonRate, 0.0).unwrap());
+        sim.add_metric(Metric::with_target_usize(MetricType::AnswerCount, 0).unwrap());
 
         sim
     }
@@ -250,7 +250,7 @@ mod tests {
         let mut sim = simulation();
 
         let client = Client::default();
-        sim.add_client(&client);
+        sim.add_client(client);
 
         sim.enable();
 
@@ -273,10 +273,10 @@ mod tests {
         let mut sim = simulation();
 
         let client = Client::default();
-        sim.add_client(&client);
+        sim.add_client(client);
 
         let server = Server::default();
-        sim.add_server(&server);
+        sim.add_server(server);
 
         sim.enable();
 
@@ -303,11 +303,11 @@ mod tests {
             handle_time: TICKS_PER_SECOND * 300,
             ..Client::default()
         };
-        sim.add_client(&client);
-        sim.add_client(&client);
+        sim.add_client(client.clone());
+        sim.add_client(client);
 
         let server = Server::default();
-        sim.add_server(&server);
+        sim.add_server(server);
 
         sim.enable();
 
@@ -334,7 +334,7 @@ mod tests {
 
         // Cannot add profile to running sim
         let client = Client::default();
-        sim.add_client(&client);
+        sim.add_client(client);
     }
 
     #[test]
@@ -354,6 +354,6 @@ mod tests {
         sim.enable();
 
         let server = Server::default();
-        sim.add_server(&server);
+        sim.add_server(server);
     }
 }

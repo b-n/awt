@@ -62,18 +62,18 @@ fn run_sim(counter: usize, servers: &[Server], profiles: &[ClientProfile], metri
     let mut sim = Simulation::new(rng);
 
     for server in servers {
-        sim.add_server(server);
+        sim.add_server(server.clone());
     }
 
     for profile in profiles {
         (0..profile.quantity).for_each(|_| {
             let client = Client::from(profile);
-            sim.add_client(&client);
+            sim.add_client(client);
         });
     }
 
     for metric in metrics {
-        sim.add_metric(metric);
+        sim.add_metric(metric.clone());
     }
 
     sim.enable();

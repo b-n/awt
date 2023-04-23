@@ -54,11 +54,8 @@ impl PartialOrd for QueueableServer {
 }
 
 impl QueueableServer {
-    pub fn new(server: &Server) -> Self {
-        Self {
-            server: server.clone(),
-            tick: 0,
-        }
+    pub fn new(server: Server) -> Self {
+        Self { server, tick: 0 }
     }
 
     pub fn server(&self) -> &Server {
