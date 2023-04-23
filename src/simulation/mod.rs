@@ -223,8 +223,8 @@ mod tests {
     fn simulation() -> Simulation {
         let mut sim = Simulation::new(mock_rng());
 
-        sim.add_metric(Metric::with_target_f64(MetricType::AbandonRate, 0.0).unwrap());
-        sim.add_metric(Metric::with_target_usize(MetricType::AnswerCount, 0).unwrap());
+        sim.add_metric(&Metric::with_target_f64(MetricType::AbandonRate, 0.0).unwrap());
+        sim.add_metric(&Metric::with_target_usize(MetricType::AnswerCount, 0).unwrap());
 
         sim
     }
