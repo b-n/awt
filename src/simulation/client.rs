@@ -1,6 +1,6 @@
 use core::time::Duration;
 
-use super::ClientProfile;
+use crate::config;
 use crate::Attribute;
 
 const FIVE_MINUTES: Duration = Duration::new(300, 0);
@@ -14,8 +14,8 @@ pub struct Client {
     pub abandon_time: Duration,
 }
 
-impl From<&ClientProfile> for Client {
-    fn from(cp: &ClientProfile) -> Self {
+impl From<&config::Client> for Client {
+    fn from(cp: &config::Client) -> Self {
         Self {
             required_attributes: cp.required_attributes.clone(),
             handle_time: cp.handle_time,

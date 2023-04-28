@@ -6,13 +6,13 @@ use std::io::Read;
 use std::path::PathBuf;
 use thiserror::Error;
 
-mod client_profile;
+mod client;
 
-pub use client_profile::ClientProfile;
+pub use client::Client;
 
 #[derive(Deserialize)]
 pub struct Config {
-    pub client_profiles: Vec<ClientProfile>,
+    pub clients: Vec<Client>,
     #[serde(default)]
     pub simulations: usize,
     pub tick_size: Duration,

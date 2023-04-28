@@ -12,7 +12,7 @@ pub use request::{Queue as RequestQueue, Request, Status as RequestStatus};
 pub use server::{Queue as ServerQueue, QueueableServer, Server};
 pub use statistics::Statistics;
 
-use crate::{Attribute, ClientProfile, Metric};
+use crate::{Attribute, Metric};
 use routing::route_requests;
 
 pub struct Simulation {

@@ -52,7 +52,7 @@ mod simulation;
 
 use args::Args;
 use attribute::Attribute;
-use config::{ClientProfile, Config};
+use config::Config;
 use metric::{Metric, MetricType};
 use min_queue::MinQueue;
 use simulation::{Client, Server, Simulation};
@@ -62,7 +62,7 @@ fn run_sim(
     tick_size: Duration,
     tick_until: Duration,
     servers: &[Server],
-    profiles: &[ClientProfile],
+    clients: &[config::Client],
     metrics: &[Metric],
 ) {
     // Rust docs says we can trust this won't fail 🤞
@@ -74,9 +74,9 @@ fn run_sim(
         sim.add_server(server.clone());
     }
 
-    for profile in profiles {
-        (0..profile.quantity).for_each(|_| {
-            let client = Client::from(profile);
+    for client_config in clients {
+        (0..client_config.quantity).for_each(|_| {
+            let client = Client::from(client_config);
             sim.add_client(client);
         });
     }
@@ -119,7 +119,7 @@ fn try_main() -> Result<usize, Box<dyn std::error::Error>> {
         .build_global()?;
 
     let servers = vec![Server::default()];
-    let profiles = config.client_profiles;
+    let clients = config.clients;
     let simulations = config.simulations;
     let tick_size = config.tick_size;
     let tick_until = config.tick_until;
@@ -131,7 +131,7 @@ fn try_main() -> Result<usize, Box<dyn std::error::Error>> {
     ];
 
     (0..simulations).into_par_iter().for_each(|sim| {
-        run_sim(sim, tick_size, tick_until, &servers, &profiles, &metrics);
+        run_sim(sim, tick_size, tick_until, &servers, &clients, &metrics);
     });
 
     Ok(0)
