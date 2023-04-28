@@ -61,7 +61,7 @@ fn run_sim(
     counter: usize,
     tick_size: Duration,
     tick_until: Duration,
-    servers: &[Server],
+    servers: &[config::Server],
     clients: &[config::Client],
     metrics: &[Metric],
 ) {
@@ -70,8 +70,11 @@ fn run_sim(
     let rng = Box::new(SmallRng::from_rng(thread_rng()).unwrap());
     let mut sim = Simulation::new(rng, tick_size, tick_until);
 
-    for server in servers {
-        sim.add_server(server.clone());
+    for server_config in servers {
+        (0..server_config.quantity).for_each(|_| {
+            let server = Server::from(server_config);
+            sim.add_server(server);
+        });
     }
 
     for client_config in clients {
@@ -118,8 +121,8 @@ fn try_main() -> Result<usize, Box<dyn std::error::Error>> {
         .num_threads(sim_threads)
         .build_global()?;
 
-    let servers = vec![Server::default()];
     let clients = config.clients;
+    let servers = config.servers;
     let simulations = config.simulations;
     let tick_size = config.tick_size;
     let tick_until = config.tick_until;

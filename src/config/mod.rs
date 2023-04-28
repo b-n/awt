@@ -7,12 +7,15 @@ use std::path::PathBuf;
 use thiserror::Error;
 
 mod client;
+mod server;
 
 pub use client::Client;
+pub use server::Server;
 
 #[derive(Deserialize)]
 pub struct Config {
     pub clients: Vec<Client>,
+    pub servers: Vec<Server>,
     #[serde(default)]
     pub simulations: usize,
     pub tick_size: Duration,

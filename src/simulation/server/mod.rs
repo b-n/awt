@@ -5,6 +5,7 @@ use std::sync::{atomic, atomic::AtomicUsize};
 
 mod queue;
 
+use crate::config;
 pub use queue::Queue;
 
 static ID_COUNTER: AtomicUsize = AtomicUsize::new(0);
@@ -21,6 +22,15 @@ impl Default for Server {
         Self {
             id: ID_COUNTER.fetch_add(1, atomic::Ordering::SeqCst),
             attributes: vec![],
+        }
+    }
+}
+
+impl From<&config::Server> for Server {
+    fn from(s: &config::Server) -> Self {
+        Self {
+            attributes: s.attributes.clone(),
+            ..Self::default()
         }
     }
 }
