@@ -29,11 +29,11 @@ pub struct Config {
 #[derive(Debug, Error)]
 pub enum ConfigError {
     #[error("IOError: Couldn't open file for reading - {0}")]
-    IOError(#[from] std::io::Error),
-    #[error("DeserializeError: Invalid toml contents - {0}")]
-    DeserializeError(#[from] toml::de::Error),
-    #[error("MetricError: {0}")]
-    MetricError(metric::MetricError),
+    IO(#[from] std::io::Error),
+    #[error("DeserializationError: Invalid toml contents - {0}")]
+    Deserialization(#[from] toml::de::Error),
+    #[error("Metric: {0}")]
+    Metric(metric::MetricError),
 }
 
 impl TryFrom<&PathBuf> for Config {
@@ -73,12 +73,10 @@ impl Config {
     }
 
     pub fn metrics(&self) -> Result<Vec<crate::Metric>, ConfigError> {
-        let metrics: Result<Vec<crate::Metric>, metric::MetricError> = self
-            .metrics
+        self.metrics
             .iter()
-            .map(|metric_config| crate::Metric::try_from(metric_config))
-            .collect();
-
-        metrics.map_err(|err| ConfigError::MetricError(err))
+            .map(crate::Metric::try_from)
+            .collect::<Result<Vec<crate::Metric>, metric::MetricError>>()
+            .map_err(ConfigError::Metric)
     }
 }

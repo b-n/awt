@@ -36,6 +36,8 @@
 #![warn(trivial_casts, trivial_numeric_casts)]
 #![warn(unused_qualifications)]
 #![warn(variant_size_difference)]
+// Caused by hermit-abi dependency in rayon and clap
+#![allow(clippy::multiple_crate_versions)]
 
 use clap::Parser;
 use core::time::Duration;
