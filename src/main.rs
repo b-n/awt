@@ -61,31 +61,25 @@ fn run_sim(
     counter: usize,
     tick_size: Duration,
     tick_until: Duration,
-    servers: &[config::Server],
-    clients: &[config::Client],
-    metrics: &[Metric],
+    servers: Vec<Server>,
+    clients: Vec<Client>,
+    metrics: Vec<Metric>,
 ) {
     // Rust docs says we can trust this won't fail 🤞
     // Ref: https://docs.rs/rand/latest/rand/rngs/struct.SmallRng.html#examples
     let rng = Box::new(SmallRng::from_rng(thread_rng()).unwrap());
     let mut sim = Simulation::new(rng, tick_size, tick_until);
 
-    for server_config in servers {
-        (0..server_config.quantity).for_each(|_| {
-            let server = Server::from(server_config);
-            sim.add_server(server);
-        });
+    for server in servers {
+        sim.add_server(server);
     }
 
-    for client_config in clients {
-        (0..client_config.quantity).for_each(|_| {
-            let client = Client::from(client_config);
-            sim.add_client(client);
-        });
+    for client in clients {
+        sim.add_client(client);
     }
 
     for metric in metrics {
-        sim.add_metric(metric.clone());
+        sim.add_metric(metric);
     }
 
     sim.enable();
@@ -107,7 +101,7 @@ fn main() {
     }
 }
 
-fn try_main() -> Result<usize, Box<dyn std::error::Error>> {
+fn try_main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Args::parse();
     let config_path = args.config_path.unwrap();
 
@@ -121,21 +115,27 @@ fn try_main() -> Result<usize, Box<dyn std::error::Error>> {
         .num_threads(sim_threads)
         .build_global()?;
 
-    let clients = config.clients;
-    let servers = config.servers;
+    // Retrieve all the required values from the config prior to starting the simulation run('s)
+    let clients = config.clients();
+    let servers = config.servers();
+    let metrics = config.metrics()?;
     let simulations = config.simulations;
     let tick_size = config.tick_size;
     let tick_until = config.tick_until;
 
-    let metrics = vec![
-        Metric::with_target_f64(MetricType::AbandonRate, 0.1).unwrap(),
-        Metric::with_target_duration(MetricType::AverageSpeedAnswer, Duration::new(15, 0)).unwrap(),
-        Metric::with_target_usize(MetricType::AnswerCount, 100).unwrap(),
-    ];
-
     (0..simulations).into_par_iter().for_each(|sim| {
-        run_sim(sim, tick_size, tick_until, &servers, &clients, &metrics);
+        // All values are cloned from the above instead of generating each round. All simulation
+        // data is owned to ensure encapsulation of the data, and for speed at the trade off of
+        // memory usage (which is very small per sim).
+        run_sim(
+            sim,
+            tick_size,
+            tick_until,
+            servers.clone(),
+            clients.clone(),
+            metrics.clone(),
+        );
     });
 
-    Ok(0)
+    Ok(())
 }

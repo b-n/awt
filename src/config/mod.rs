@@ -7,15 +7,18 @@ use std::path::PathBuf;
 use thiserror::Error;
 
 mod client;
+mod metric;
 mod server;
 
-pub use client::Client;
-pub use server::Server;
+use client::Client;
+use metric::Metric;
+use server::Server;
 
 #[derive(Deserialize)]
 pub struct Config {
-    pub clients: Vec<Client>,
-    pub servers: Vec<Server>,
+    clients: Vec<Client>,
+    servers: Vec<Server>,
+    metrics: Vec<Metric>,
     #[serde(default)]
     pub simulations: usize,
     pub tick_size: Duration,
@@ -29,6 +32,8 @@ pub enum ConfigError {
     IOError(#[from] std::io::Error),
     #[error("DeserializeError: Invalid toml contents - {0}")]
     DeserializeError(#[from] toml::de::Error),
+    #[error("MetricError: {0}")]
+    MetricError(metric::MetricError),
 }
 
 impl TryFrom<&PathBuf> for Config {
@@ -41,5 +46,39 @@ impl TryFrom<&PathBuf> for Config {
         file.read_to_string(&mut toml)?;
 
         Ok(toml::from_str::<Config>(&toml)?)
+    }
+}
+
+impl Config {
+    pub fn clients(&self) -> Vec<crate::Client> {
+        self.clients
+            .iter()
+            .flat_map(|client_config| {
+                (0..client_config.quantity)
+                    .map(|_| crate::Client::from(client_config))
+                    .collect::<Vec<crate::Client>>()
+            })
+            .collect()
+    }
+
+    pub fn servers(&self) -> Vec<crate::Server> {
+        self.servers
+            .iter()
+            .flat_map(|server_config| {
+                (0..server_config.quantity)
+                    .map(|_| crate::Server::from(server_config))
+                    .collect::<Vec<crate::Server>>()
+            })
+            .collect()
+    }
+
+    pub fn metrics(&self) -> Result<Vec<crate::Metric>, ConfigError> {
+        let metrics: Result<Vec<crate::Metric>, metric::MetricError> = self
+            .metrics
+            .iter()
+            .map(|metric_config| crate::Metric::try_from(metric_config))
+            .collect();
+
+        metrics.map_err(|err| ConfigError::MetricError(err))
     }
 }

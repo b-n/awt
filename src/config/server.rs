@@ -9,3 +9,12 @@ pub struct Server {
     pub attributes: Vec<Attribute>,
     pub quantity: usize,
 }
+
+impl From<&Server> for crate::Server {
+    fn from(s: &Server) -> Self {
+        Self {
+            attributes: s.attributes.clone(),
+            ..Self::default()
+        }
+    }
+}

@@ -1,6 +1,18 @@
-simulations = 1
+simulations = 1_000
 tick_size = { secs = 0, nanos = 10_000_000 }
 tick_until = { secs = 3600, nanos = 0 }
+metrics = [
+  { metric = "ServiceLevel", sla = { secs = 20, nanos = 0 }, target = 0.8 },
+  { metric = "ServiceLevel", sla = { secs = 10, nanos = 0 }, target = 0.5 },
+  { metric = "ServiceLevel", sla = { secs = 60, nanos = 0 }, target = 0.95 },
+  { metric = "AverageWorkTime", target = { secs = 300, nanos = 0 } },
+  { metric = "AverageSpeedAnswer", target = { secs = 20, nanos = 0 } },
+  { metric = "AverageTimeToAbandon", target = { secs = 10, nanos = 0 } },
+  { metric = "AverageTimeInQueue", target = { secs = 30, nanos = 0 } },
+  { metric = "AverageWorkTime", target = { secs = 300, nanos = 0 } },
+  { metric = "AbandonRate", target = 0.3 },
+  { metric = "AnswerCount", target = 20 },
+]
 
 [[clients]]
 handle_time = { secs = 300, nanos = 0 }
@@ -13,8 +25,8 @@ name = "special_skill"
 level = 0
 
 [[clients]]
-handle_time = { secs = 300, nanos = 0 }
-abandon_time = { secs = 10, nanos = 0 }
+handle_time = { secs = 150, nanos = 0 }
+abandon_time = { secs = 60, nanos = 0 }
 quantity = 50
 
 [[servers]]
