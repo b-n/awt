@@ -37,30 +37,38 @@
 #![warn(unused_qualifications)]
 #![warn(variant_size_difference)]
 
+use clap::Parser;
 use core::time::Duration;
 use rand::{rngs::SmallRng, thread_rng, SeedableRng};
 use rayon::prelude::*;
 use std::thread::available_parallelism;
 
+mod args;
 mod attribute;
 mod config;
 mod metric;
 mod min_queue;
 mod simulation;
 
+use args::Args;
 use attribute::Attribute;
-use config::ClientProfile;
+use config::{ClientProfile, Config};
 use metric::{Metric, MetricType};
 use min_queue::MinQueue;
 use simulation::{Client, Server, Simulation};
 
-const TOTAL_SIMS: usize = 100_000;
-
-fn run_sim(counter: usize, servers: &[Server], profiles: &[ClientProfile], metrics: &[Metric]) {
+fn run_sim(
+    counter: usize,
+    tick_size: Duration,
+    tick_until: Duration,
+    servers: &[Server],
+    profiles: &[ClientProfile],
+    metrics: &[Metric],
+) {
     // Rust docs says we can trust this won't fail 🤞
     // Ref: https://docs.rs/rand/latest/rand/rngs/struct.SmallRng.html#examples
     let rng = Box::new(SmallRng::from_rng(thread_rng()).unwrap());
-    let mut sim = Simulation::new(rng);
+    let mut sim = Simulation::new(rng, tick_size, tick_until);
 
     for server in servers {
         sim.add_server(server.clone());
@@ -85,28 +93,36 @@ fn run_sim(counter: usize, servers: &[Server], profiles: &[ClientProfile], metri
 }
 
 fn main() {
+    match try_main() {
+        Ok(_) => {
+            std::process::exit(exitcode::OK);
+        }
+        Err(err) => {
+            println!("{err}");
+            std::process::exit(exitcode::USAGE);
+        }
+    }
+}
+
+fn try_main() -> Result<usize, Box<dyn std::error::Error>> {
+    let args = Args::parse();
+    let config_path = args.config_path.unwrap();
+
+    let config = Config::try_from(&config_path)?;
+
     // We want to pin some cores, but not all the cores
-    let sim_threads = available_parallelism().unwrap().get() - 1;
+    let sim_threads = available_parallelism()?.get() - 1;
 
     //Setup a fairly safe thread pool.
     rayon::ThreadPoolBuilder::new()
         .num_threads(sim_threads)
-        .build_global()
-        .unwrap();
+        .build_global()?;
 
     let servers = vec![Server::default()];
-    let profiles = vec![
-        ClientProfile {
-            quantity: 50,
-            handle_time: Duration::new(150, 0),
-            ..ClientProfile::default()
-        },
-        ClientProfile {
-            handle_time: Duration::new(300, 0),
-            quantity: 50,
-            ..ClientProfile::default()
-        },
-    ];
+    let profiles = config.client_profiles;
+    let simulations = config.simulations;
+    let tick_size = config.tick_size;
+    let tick_until = config.tick_until;
 
     let metrics = vec![
         Metric::with_target_f64(MetricType::AbandonRate, 0.1).unwrap(),
@@ -114,7 +130,9 @@ fn main() {
         Metric::with_target_usize(MetricType::AnswerCount, 100).unwrap(),
     ];
 
-    (0..TOTAL_SIMS).into_par_iter().for_each(|sim| {
-        run_sim(sim, &servers, &profiles, &metrics);
+    (0..simulations).into_par_iter().for_each(|sim| {
+        run_sim(sim, tick_size, tick_until, &servers, &profiles, &metrics);
     });
+
+    Ok(0)
 }

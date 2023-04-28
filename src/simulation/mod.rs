@@ -15,9 +15,6 @@ pub use statistics::Statistics;
 use crate::{Attribute, ClientProfile, Metric};
 use routing::route_requests;
 
-pub const TICK_SIZE: Duration = Duration::from_millis(1);
-pub const ONE_HOUR: Duration = Duration::new(60 * 60, 0);
-
 pub struct Simulation {
     start: Duration,
     tick: Duration,
@@ -32,12 +29,12 @@ pub struct Simulation {
 }
 
 impl Simulation {
-    pub fn new(rng: Box<dyn RngCore>) -> Self {
+    pub fn new(rng: Box<dyn RngCore>, tick_size: Duration, tick_until: Duration) -> Self {
         Self {
             start: Duration::ZERO,
             tick: Duration::ZERO,
-            tick_size: TICK_SIZE,
-            tick_until: ONE_HOUR,
+            tick_size,
+            tick_until,
             running: false,
             clients: vec![],
             request_queue: RequestQueue::new(),
@@ -210,6 +207,9 @@ mod tests {
 
     use rand::rngs::mock::StepRng;
 
+    const TICK_SIZE: Duration = Duration::new(0, 50_000_000);
+    const ONE_HOUR: Duration = Duration::new(60 * 60, 0);
+
     fn mock_rng() -> Box<dyn RngCore> {
         // Set the step size to be compatible with `gen_range`. `gen_range` restricts the domain by
         // giving multiple rolls per element in the range sequentially.
@@ -218,7 +218,7 @@ mod tests {
     }
 
     fn simulation() -> Simulation {
-        let mut sim = Simulation::new(mock_rng());
+        let mut sim = Simulation::new(mock_rng(), TICK_SIZE, ONE_HOUR);
 
         sim.add_metric(Metric::with_target_f64(MetricType::AbandonRate, 0.0).unwrap());
         sim.add_metric(Metric::with_target_usize(MetricType::AnswerCount, 0).unwrap());
@@ -329,7 +329,7 @@ mod tests {
     #[test]
     #[should_panic]
     fn cannot_add_profiles_whilst_running() {
-        let mut sim = Simulation::new(mock_rng());
+        let mut sim = Simulation::new(mock_rng(), TICK_SIZE, ONE_HOUR);
         sim.enable();
 
         // Cannot add profile to running sim
@@ -340,7 +340,7 @@ mod tests {
     #[test]
     #[should_panic]
     fn cannot_enable_twice() {
-        let mut sim = Simulation::new(mock_rng());
+        let mut sim = Simulation::new(mock_rng(), TICK_SIZE, ONE_HOUR);
         sim.enable();
 
         // Cannot enable twice
@@ -350,7 +350,7 @@ mod tests {
     #[test]
     #[should_panic]
     fn cannot_add_server_whilst_running() {
-        let mut sim = Simulation::new(mock_rng());
+        let mut sim = Simulation::new(mock_rng(), TICK_SIZE, ONE_HOUR);
         sim.enable();
 
         let server = Server::default();

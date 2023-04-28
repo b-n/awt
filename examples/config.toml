@@ -1,0 +1,18 @@
+simulations = 1
+tick_size = { secs = 0, nanos = 1_000_000 }
+tick_until = { secs = 3600, nanos = 0 }
+
+[[client_profiles]]
+handle_time = { secs = 300, nanos = 0 }
+abandon_time = { secs = 15, nanos = 0 }
+clean_up_time = { secs = 1, nanos = 0 }
+quantity = 50
+
+[[client_profiles.required_attributes]]
+name = "special_skill"
+level = 0
+
+[[client_profiles]]
+handle_time = { secs = 300, nanos = 0 }
+abandon_time = { secs = 10, nanos = 0 }
+quantity = 50
