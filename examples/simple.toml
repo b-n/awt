@@ -1,0 +1,16 @@
+simulations = 1_000
+tick_size = { secs = 0, nanos = 10_000_000 }
+tick_until = { secs = 3600, nanos = 0 }
+metrics = [
+  { metric = "ServiceLevel", sla = { secs = 20, nanos = 0 }, target = 0.9 },
+  { metric = "AnswerCount", target = 6 },
+]
+
+[[clients]]
+handle_time = { secs = 300, nanos = 0 }
+abandon_time = { secs = 60, nanos = 0 }
+clean_up_time = { secs = 1, nanos = 0 }
+quantity = 6
+
+[[servers]]
+quantity = 1
