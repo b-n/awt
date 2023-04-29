@@ -97,6 +97,7 @@ Future use
 
 ## TODO
 
+- [ ] Configurable logging
 - [ ] Secure attribute routing
 - [ ] Support for lua in routing
 

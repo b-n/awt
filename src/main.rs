@@ -41,6 +41,7 @@
 
 use clap::Parser;
 use core::time::Duration;
+use log::{debug, error, info, trace};
 use rand::{rngs::SmallRng, thread_rng, SeedableRng};
 use rayon::prelude::*;
 use std::thread::available_parallelism;
@@ -52,7 +53,7 @@ mod metric;
 mod min_queue;
 mod simulation;
 
-use args::Args;
+use args::{log_level, Args};
 use attribute::Attribute;
 use config::Config;
 use metric::{Metric, MetricType};
@@ -71,22 +72,28 @@ fn run_sim(
     // Ref: https://docs.rs/rand/latest/rand/rngs/struct.SmallRng.html#examples
     let rng = Box::new(SmallRng::from_rng(thread_rng()).unwrap());
     let mut sim = Simulation::new(rng, tick_size, tick_until);
+    info!(target: "main", "sim {counter}: created");
 
     for server in servers {
         sim.add_server(server);
     }
+    trace!(target: "main", "sim {counter}: added servers");
 
     for client in clients {
         sim.add_client(client);
     }
+    trace!(target: "main", "sim {counter}: added clients");
 
     for metric in metrics {
         sim.add_metric(metric);
     }
+    trace!(target: "main", "sim {counter}: added metrics");
 
     sim.enable();
+    info!(target: "main", "sim {counter}: enabled");
 
     while sim.tick() {}
+    info!(target: "main", "sim {counter}: finished ticking");
 
     println!("Sim {counter} {:?}\n{}", sim.running(), sim.statistics());
 }
@@ -97,7 +104,7 @@ fn main() {
             std::process::exit(exitcode::OK);
         }
         Err(err) => {
-            println!("{err}");
+            error!(target: "main", "{err}");
             std::process::exit(exitcode::USAGE);
         }
     }
@@ -105,8 +112,11 @@ fn main() {
 
 fn try_main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Args::parse();
-    let config_path = args.config_path.unwrap();
 
+    let log_level = log_level(args.log_level);
+    simple_logger::init_with_level(log_level)?;
+
+    let config_path = args.config_path.unwrap();
     let config = Config::try_from(&config_path)?;
 
     // We want to pin some cores, but not all the cores
@@ -116,14 +126,19 @@ fn try_main() -> Result<(), Box<dyn std::error::Error>> {
     rayon::ThreadPoolBuilder::new()
         .num_threads(sim_threads)
         .build_global()?;
+    debug!(target: "main", "setting rayon to use {sim_threads} threads");
 
     // Retrieve all the required values from the config prior to starting the simulation run('s)
     let clients = config.clients();
+    trace!(target: "main", "clients: {clients:?}");
     let servers = config.servers();
+    trace!(target: "main", "servers: {servers:?}");
     let metrics = config.metrics()?;
+    trace!(target: "main", "metrics: {metrics:?}");
     let simulations = config.simulations;
     let tick_size = config.tick_size;
     let tick_until = config.tick_until;
+    trace!(target: "main", "sim: ({simulations}, {tick_size:?}, {tick_until:?}");
 
     (0..simulations).into_par_iter().for_each(|sim| {
         // All values are cloned from the above instead of generating each round. All simulation
