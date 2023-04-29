@@ -1,4 +1,5 @@
 mod client;
+mod error;
 mod request;
 mod routing;
 mod server;
@@ -8,12 +9,15 @@ use core::time::Duration;
 use rand::{Rng, RngCore};
 
 pub use client::Client;
+pub use error::Error;
 pub use request::{Queue as RequestQueue, Request, Status as RequestStatus};
 pub use server::{Queue as ServerQueue, QueueableServer, Server};
 pub use statistics::Statistics;
 
 use crate::{Attribute, Metric};
 use routing::route_requests;
+
+pub type Result<T> = std::result::Result<T, Error>;
 
 pub struct Simulation {
     start: Duration,
@@ -47,44 +51,47 @@ impl Simulation {
 
 // Structure and setup
 impl Simulation {
-    pub fn add_server(&mut self, server: Server) {
-        assert!(
-            !self.running,
-            "Servers can only be added whilst the simulation is stopped"
-        );
-
+    pub fn add_server(&mut self, server: Server) -> Result<()> {
+        if self.running {
+            return Err(Error::Enabled("add_server".into()));
+        }
         self.server_queue.push(QueueableServer::new(server));
+        Ok(())
     }
 
-    pub fn add_client(&mut self, client: Client) {
-        assert!(
-            !self.running,
-            "Client Profiles can only be added whilst the simulation is stopped"
-        );
+    pub fn add_client(&mut self, client: Client) -> Result<()> {
+        if self.running {
+            return Err(Error::Enabled("add_client".into()));
+        }
 
         self.clients.push(client);
+
+        Ok(())
     }
 
-    pub fn add_metric(&mut self, metric: Metric) {
-        assert!(
-            !self.running,
-            "Cannot add metric whilst simulation is in progress"
-        );
+    pub fn add_metric(&mut self, metric: Metric) -> Result<()> {
+        if self.running {
+            return Err(Error::Enabled("add_metric".into()));
+        }
 
         self.statistics.push(metric);
+        Ok(())
     }
 
     /// Enables the `Simulation`, generating all the internal state required for running. A
     /// `Simulation` can then be advanced by calling the `tick()` function until it returns
     /// `false`.
-    pub fn enable(&mut self) {
-        assert!(!self.running, "Cannot enable an already enabled simulation");
+    pub fn enable(&mut self) -> Result<bool> {
+        if self.running {
+            return Err(Error::Enabled("enable".into()));
+        }
 
         self.running = true;
         self.generate_requests();
 
         self.server_queue.init();
         self.request_queue.init();
+        Ok(self.running)
     }
 
     /// Returns a tuple which indicates of the whether the `Simulation` is still running along with
@@ -95,15 +102,14 @@ impl Simulation {
     }
 
     /// Returns the `Statistics` object for this simulation.
-    pub fn statistics(&mut self) -> &Statistics {
-        assert!(
-            !self.running,
-            "Cannot get statistics for inprogress simulation"
-        );
+    pub fn statistics(&mut self) -> Result<&Statistics> {
+        if self.running {
+            return Err(Error::Enabled("statistics".into()));
+        }
 
         let requests = self.request_queue.requests();
         self.statistics.calculate(requests);
-        &self.statistics
+        Ok(&self.statistics)
     }
 }
 
@@ -217,24 +223,24 @@ mod tests {
         Box::new(StepRng::new(1, step))
     }
 
-    fn simulation() -> Simulation {
+    fn simulation() -> Result<Simulation> {
         let mut sim = Simulation::new(mock_rng(), TICK_SIZE, ONE_HOUR);
 
-        sim.add_metric(Metric::with_target_f64(MetricType::AbandonRate, 0.0).unwrap());
-        sim.add_metric(Metric::with_target_usize(MetricType::AnswerCount, 0).unwrap());
+        sim.add_metric(Metric::with_target_f64(MetricType::AbandonRate, 0.0).unwrap())?;
+        sim.add_metric(Metric::with_target_usize(MetricType::AnswerCount, 0).unwrap())?;
 
-        sim
+        Ok(sim)
     }
 
     #[test]
-    fn empty_sim() {
-        let mut sim = simulation();
+    fn empty_sim() -> Result<()> {
+        let mut sim = simulation()?;
 
-        sim.enable();
+        sim.enable()?;
 
         while sim.tick() {}
 
-        let stats = sim.statistics();
+        let stats = sim.statistics()?;
         assert_eq!(
             "None",
             format!("{}", stats.get(&MetricType::AbandonRate).unwrap())
@@ -243,21 +249,21 @@ mod tests {
             "0",
             format!("{}", stats.get(&MetricType::AnswerCount).unwrap())
         );
-        assert_eq!((false, ONE_HOUR), sim.running());
+        Ok(assert_eq!((false, ONE_HOUR), sim.running()))
     }
 
     #[test]
-    fn no_servers() {
-        let mut sim = simulation();
+    fn no_servers() -> Result<()> {
+        let mut sim = simulation()?;
 
         let client = Client::default();
-        sim.add_client(client);
+        sim.add_client(client)?;
 
-        sim.enable();
+        sim.enable()?;
 
         while sim.tick() {}
 
-        let stats = sim.statistics();
+        let stats = sim.statistics()?;
         assert_eq!(
             "1",
             format!("{}", stats.get(&MetricType::AbandonRate).unwrap())
@@ -266,24 +272,24 @@ mod tests {
             "0",
             format!("{}", stats.get(&MetricType::AnswerCount).unwrap())
         );
-        assert_eq!((false, ONE_HOUR), sim.running());
+        Ok(assert_eq!((false, ONE_HOUR), sim.running()))
     }
 
     #[test]
-    fn can_handle_requests() {
-        let mut sim = simulation();
+    fn can_handle_requests() -> Result<()> {
+        let mut sim = simulation()?;
 
         let client = Client::default();
-        sim.add_client(client);
+        sim.add_client(client)?;
 
         let server = Server::default();
-        sim.add_server(server);
+        sim.add_server(server)?;
 
-        sim.enable();
+        sim.enable()?;
 
         while sim.tick() {}
 
-        let stats = sim.statistics();
+        let stats = sim.statistics()?;
         assert_eq!(
             "0",
             format!("{}", stats.get(&MetricType::AbandonRate).unwrap())
@@ -292,29 +298,29 @@ mod tests {
             "1",
             format!("{}", stats.get(&MetricType::AnswerCount).unwrap())
         );
-        assert_eq!((false, ONE_HOUR), sim.running());
+        Ok(assert_eq!((false, ONE_HOUR), sim.running()))
     }
 
     #[test]
-    fn requests_can_abandon() {
-        let mut sim = simulation();
+    fn requests_can_abandon() -> Result<()> {
+        let mut sim = simulation()?;
 
         // Ensure two requests are provided in a way that the second cannot be handled in time
         let client = Client {
             handle_time: Duration::new(300, 0),
             ..Client::default()
         };
-        sim.add_client(client.clone());
-        sim.add_client(client);
+        sim.add_client(client.clone())?;
+        sim.add_client(client)?;
 
         let server = Server::default();
-        sim.add_server(server);
+        sim.add_server(server)?;
 
-        sim.enable();
+        sim.enable()?;
 
         while sim.tick() {}
 
-        let stats = sim.statistics();
+        let stats = sim.statistics()?;
         assert_eq!(
             "0.5",
             format!("{}", stats.get(&MetricType::AbandonRate).unwrap())
@@ -323,37 +329,34 @@ mod tests {
             "1",
             format!("{}", stats.get(&MetricType::AnswerCount).unwrap())
         );
-        assert_eq!((false, ONE_HOUR), sim.running());
+        Ok(assert_eq!((false, ONE_HOUR), sim.running()))
     }
 
     #[test]
-    #[should_panic]
-    fn cannot_add_profiles_whilst_running() {
+    fn cannot_add_profiles_whilst_running() -> Result<()> {
         let mut sim = Simulation::new(mock_rng(), TICK_SIZE, ONE_HOUR);
-        sim.enable();
+        sim.enable()?;
 
         // Cannot add profile to running sim
         let client = Client::default();
-        sim.add_client(client);
+        Ok(assert!(sim.add_client(client).is_err()))
     }
 
     #[test]
-    #[should_panic]
-    fn cannot_enable_twice() {
+    fn cannot_enable_twice() -> Result<()> {
         let mut sim = Simulation::new(mock_rng(), TICK_SIZE, ONE_HOUR);
-        sim.enable();
+        sim.enable()?;
 
         // Cannot enable twice
-        sim.enable();
+        Ok(assert!(sim.enable().is_err()))
     }
 
     #[test]
-    #[should_panic]
-    fn cannot_add_server_whilst_running() {
+    fn cannot_add_server_whilst_running() -> Result<()> {
         let mut sim = Simulation::new(mock_rng(), TICK_SIZE, ONE_HOUR);
-        sim.enable();
+        sim.enable()?;
 
         let server = Server::default();
-        sim.add_server(server);
+        Ok(assert!(sim.add_server(server).is_err()))
     }
 }

@@ -58,7 +58,7 @@ use attribute::Attribute;
 use config::Config;
 use metric::{Metric, MetricType};
 use min_queue::MinQueue;
-use simulation::{Client, Server, Simulation};
+use simulation::{Client, Error as SimulationError, Server, Simulation};
 
 fn run_sim(
     counter: usize,
@@ -67,7 +67,7 @@ fn run_sim(
     servers: Vec<Server>,
     clients: Vec<Client>,
     metrics: Vec<Metric>,
-) {
+) -> Result<(), SimulationError> {
     // Rust docs says we can trust this won't fail 🤞
     // Ref: https://docs.rs/rand/latest/rand/rngs/struct.SmallRng.html#examples
     let rng = Box::new(SmallRng::from_rng(thread_rng()).unwrap());
@@ -75,27 +75,28 @@ fn run_sim(
     info!(target: "main", "sim {counter}: created");
 
     for server in servers {
-        sim.add_server(server);
+        sim.add_server(server)?;
     }
     trace!(target: "main", "sim {counter}: added servers");
 
     for client in clients {
-        sim.add_client(client);
+        sim.add_client(client)?;
     }
     trace!(target: "main", "sim {counter}: added clients");
 
     for metric in metrics {
-        sim.add_metric(metric);
+        sim.add_metric(metric)?;
     }
     trace!(target: "main", "sim {counter}: added metrics");
 
-    sim.enable();
+    sim.enable()?;
     info!(target: "main", "sim {counter}: enabled");
 
     while sim.tick() {}
     info!(target: "main", "sim {counter}: finished ticking");
 
-    println!("Sim {counter} {:?}\n{}", sim.running(), sim.statistics());
+    println!("Sim {counter} {:?}\n{}", sim.running(), sim.statistics()?);
+    Ok(())
 }
 
 fn main() {
@@ -140,19 +141,22 @@ fn try_main() -> Result<(), Box<dyn std::error::Error>> {
     let tick_until = config.tick_until;
     trace!(target: "main", "sim: ({simulations}, {tick_size:?}, {tick_until:?}");
 
-    (0..simulations).into_par_iter().for_each(|sim| {
-        // All values are cloned from the above instead of generating each round. All simulation
-        // data is owned to ensure encapsulation of the data, and for speed at the trade off of
-        // memory usage (which is very small per sim).
-        run_sim(
-            sim,
-            tick_size,
-            tick_until,
-            servers.clone(),
-            clients.clone(),
-            metrics.clone(),
-        );
-    });
+    (0..simulations)
+        .into_par_iter()
+        .map(|sim| {
+            // All values are cloned from the above instead of generating each round. All simulation
+            // data is owned to ensure encapsulation of the data, and for speed at the trade off of
+            // memory usage (which is very small per sim).
+            run_sim(
+                sim,
+                tick_size,
+                tick_until,
+                servers.clone(),
+                clients.clone(),
+                metrics.clone(),
+            )
+        })
+        .collect::<Result<Vec<()>, SimulationError>>()?;
 
     Ok(())
 }
