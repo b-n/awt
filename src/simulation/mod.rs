@@ -173,6 +173,8 @@ impl Simulation {
         }
 
         for (request_id, server_id) in route_requests(request_data, server_data) {
+            // TODO: It's possible that the request_id or server_id are not available in the queue,
+            // which could lead to panics. This should "fail safely".
             let release_tick = self.request_queue.handle_request(request_id, self.tick);
 
             self.server_queue.enqueue(server_id, release_tick);
