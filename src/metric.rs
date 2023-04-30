@@ -1,11 +1,5 @@
 use core::time::Duration;
 
-// TODO: Metrics come in different flavours. The metrics should really wrap these types since they
-// have different targets etc e.g.
-// - Percentile (ServiceLevel + Abandonrate)
-// - Mean (Average*)
-// - Countable (# of answered, # of abandoned, etc)
-
 /// Enumerates a metric to trace on a `Request`.
 #[allow(clippy::module_name_repetitions)]
 #[allow(dead_code)]
