@@ -33,11 +33,13 @@ the server in order to facilitate the connection.
 Routing can be provided by matching the current state of the servers with the incoming request.
 
 Knowns:
+
 - The attributes the client requires
 - The available attributes on all servers
 - The current wait time of the request
 
 Unknowns:
+
 - The length of time left for each request on each server (probing should not be possible, because
   requests only end when they disconnect)
 
