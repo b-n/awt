@@ -10,6 +10,10 @@ repository = "https://github.com/b-n/awt"
 description = "A simulation engine which can emulate a client/server with multiple requests."
 homepage = "https://github.com/b-n/awt"
 documentation = "https://docs.rs/awt"
+exclude = [
+  "/.github",
+  "/docs"
+]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
