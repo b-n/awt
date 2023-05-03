@@ -2,6 +2,7 @@
 name = "awt-simulation"
 version = "0.1.0"
 description = "A simulation engine for Clients, Requests, and Servers"
+categories = ["simulation"]
 keywords = ["awt", "simulation"]
 edition.workspace = true
 license.workspace = true

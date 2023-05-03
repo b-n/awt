@@ -2,6 +2,7 @@
 name = "min-queue"
 version = "0.1.0"
 description = "Small abstraction around BinaryHeap to make a Min Queue instead of Max"
+categories = ["algorithms"]
 keywords = ["min", "binary-heap"]
 readme = "README.md"
 edition.workspace = true

@@ -13,15 +13,18 @@ pub struct Queue {
     waiting: HashMap<usize, (Rc<RefCell<Request>>, RequestData)>,
 }
 
-// Setup logic
-impl Queue {
-    pub fn new() -> Self {
+impl Default for Queue {
+    fn default() -> Self {
         Self {
             inner: vec![],
             enqueued: MinQueue::new(),
             waiting: HashMap::new(),
         }
     }
+}
+
+// Setup logic
+impl Queue {
     pub fn push(&mut self, req: Request) {
         let req = Rc::new(RefCell::new(req));
 
@@ -35,7 +38,6 @@ impl Queue {
         }
     }
 }
-
 // Ticking logic
 impl Queue {
     pub fn tick(&mut self, tick: Duration) {

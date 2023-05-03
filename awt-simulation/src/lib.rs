@@ -44,8 +44,8 @@ impl Simulation {
             tick_until,
             running: false,
             clients: vec![],
-            request_queue: RequestQueue::new(),
-            server_queue: ServerQueue::new(),
+            request_queue: RequestQueue::default(),
+            server_queue: ServerQueue::default(),
             statistics: Statistics::default(),
             rng,
         }

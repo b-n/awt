@@ -13,16 +13,18 @@ pub struct Queue {
     waiting: HashMap<usize, (Rc<RefCell<QueueableServer>>, ServerData)>,
 }
 
-// Setup and cretion logic
-impl Queue {
-    pub fn new() -> Self {
+impl Default for Queue {
+    fn default() -> Self {
         Self {
             inner: vec![],
             enqueued: MinQueue::new(),
             waiting: HashMap::new(),
         }
     }
+}
 
+// Setup and cretion logic
+impl Queue {
     pub fn push(&mut self, server: QueueableServer) {
         let server = Rc::new(RefCell::new(server));
 
