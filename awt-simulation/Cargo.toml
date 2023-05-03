@@ -4,6 +4,7 @@ version = "0.1.0"
 description = "A simulation engine for Clients, Requests, and Servers"
 categories = ["simulation"]
 keywords = ["awt", "simulation"]
+readme = "README.md"
 edition.workspace = true
 license.workspace = true
 homepage.workspace = true
@@ -17,3 +18,4 @@ serde = { version = "1.0", features = ['derive'], optional = true }
 min-queue = { version = "0.1", path = "../min-queue"}
 rand = "0.8"
 thiserror = "1.0"
+binary-heap-plus = "0.5"

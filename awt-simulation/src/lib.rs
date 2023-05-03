@@ -1,3 +1,15 @@
+#![warn(clippy::all)]
+#![warn(clippy::pedantic)]
+#![warn(clippy::cargo)]
+#![allow(unknown_lints)]
+#![warn(missing_debug_implementation)]
+#![warn(missing_copy_implementation)]
+#![warn(rust_2018_idioms)]
+#![warn(rust_2021_compatibility)]
+#![warn(trivial_casts, trivial_numeric_casts)]
+#![warn(unused_qualifications)]
+#![warn(variant_size_difference)]
+
 mod attribute;
 mod client;
 mod error;
@@ -36,6 +48,7 @@ pub struct Simulation {
 }
 
 impl Simulation {
+    #[must_use]
     pub fn new(rng: Box<dyn RngCore>, tick_size: Duration, tick_until: Duration) -> Self {
         Self {
             start: Duration::ZERO,
@@ -54,6 +67,11 @@ impl Simulation {
 
 // Structure and setup
 impl Simulation {
+    /// Add a `Server` to the `Simulation`
+    ///
+    /// # Errors
+    ///
+    /// Will error when `Simulation` is already enabled.
     pub fn add_server(&mut self, server: Server) -> Result<()> {
         if self.running {
             return Err(Error::Enabled("add_server".into()));
@@ -62,6 +80,11 @@ impl Simulation {
         Ok(())
     }
 
+    /// Add a `Client` to the `Simulation`
+    ///
+    /// # Errors
+    ///
+    /// Will error when `Simulation` is already enabled.
     pub fn add_client(&mut self, client: Client) -> Result<()> {
         if self.running {
             return Err(Error::Enabled("add_client".into()));
@@ -72,6 +95,11 @@ impl Simulation {
         Ok(())
     }
 
+    /// Add a `Metric` to the `Simulation`
+    ///
+    /// # Errors
+    ///
+    /// Will error when `Simulation` is already enabled.
     pub fn add_metric(&mut self, metric: Metric) -> Result<()> {
         if self.running {
             return Err(Error::Enabled("add_metric".into()));
@@ -81,9 +109,12 @@ impl Simulation {
         Ok(())
     }
 
-    /// Enables the `Simulation`, generating all the internal state required for running. A
-    /// `Simulation` can then be advanced by calling the `tick()` function until it returns
-    /// `false`.
+    /// Enables the `Simulation` which will generate and schedule all simulation elements. The `Simulation` can then be
+    /// advanced by calling the `tick()` until it returns false.
+    ///
+    /// # Errors
+    ///
+    /// Will error if already enabled.
     pub fn enable(&mut self) -> Result<bool> {
         if self.running {
             return Err(Error::Enabled("enable".into()));
@@ -99,12 +130,16 @@ impl Simulation {
 
     /// Returns a tuple which indicates of the whether the `Simulation` is still running along with
     /// it's current tick.
-    #[allow(dead_code)]
+    #[must_use]
     pub fn running(&self) -> (bool, Duration) {
         (self.running, self.tick)
     }
 
     /// Returns the `Statistics` object for this simulation.
+    ///
+    /// # Errors
+    ///
+    /// Will error if currently enabled and is still ticking.
     pub fn statistics(&mut self) -> Result<&Statistics> {
         if self.running {
             return Err(Error::Enabled("statistics".into()));

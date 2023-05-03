@@ -65,6 +65,7 @@ impl Meanable {
         self.count += 1;
     }
 
+    #[must_use]
     pub fn with_target(target: Duration) -> Self {
         Self {
             sum: Duration::ZERO,
@@ -73,6 +74,7 @@ impl Meanable {
         }
     }
 
+    #[must_use]
     pub fn on_target(&self) -> bool {
         match self.count {
             0 => false,
@@ -100,10 +102,12 @@ impl Countable {
         self.count += 1;
     }
 
+    #[must_use]
     pub fn with_target(target: usize) -> Self {
         Self { count: 0, target }
     }
 
+    #[must_use]
     pub fn on_target(&self) -> bool {
         match self.count {
             0 => false,
@@ -142,6 +146,7 @@ impl Percentable {
         self.count += 1;
     }
 
+    #[must_use]
     pub fn with_target(target: f64) -> Self {
         Self {
             sum: 0,
@@ -150,6 +155,7 @@ impl Percentable {
         }
     }
 
+    #[must_use]
     #[allow(clippy::cast_precision_loss)]
     pub fn on_target(&self) -> bool {
         match self.count {
@@ -177,6 +183,16 @@ pub struct MetricError {}
 
 // Structure and setup
 impl Metric {
+    /// Create a `Metric` that has a target based on `Duration`. Supported metrics:
+    ///
+    /// - `MetricType::AverageWorkTime`
+    /// - `MetricType::AverageSpeedAnswer`
+    /// - `MetricType::AverageTimeInQueue`
+    /// - `MetricType::AverageTimeToAbandon`
+    ///
+    /// # Errors
+    ///
+    /// Will error if not using one of the above metrics
     #[allow(clippy::match_wildcard_for_single_variants)]
     pub fn with_target_duration(
         metric_type: MetricType,
@@ -194,6 +210,16 @@ impl Metric {
         }
     }
 
+    /// Create a `Metric` that has a target based on `f64`. Supported metrics:
+    ///
+    /// - `MetricType::ServiceLevel(Duration)`
+    /// - `MetricType::AbandonRate`
+    ///
+    /// In the future this will also support `MetricType::UtilisationTime`
+    ///
+    /// # Errors
+    ///
+    /// Will error if not using one of the above metrics
     #[allow(clippy::match_wildcard_for_single_variants)]
     pub fn with_target_f64(metric_type: MetricType, target: f64) -> Result<Self, MetricError> {
         match metric_type {
@@ -207,6 +233,13 @@ impl Metric {
         }
     }
 
+    /// Create a `Metric` that has a target based on `usize`. Supported metrics:
+    ///
+    /// - `MetricType::AnswerCount`
+    ///
+    /// # Errors
+    ///
+    /// Will error if not using one of the above metrics
     pub fn with_target_usize(metric_type: MetricType, target: usize) -> Result<Self, MetricError> {
         match metric_type {
             MetricType::AnswerCount => Ok(Self {
@@ -217,10 +250,12 @@ impl Metric {
         }
     }
 
+    #[must_use]
     pub fn metric(&self) -> MetricType {
         self.metric_type
     }
 
+    #[must_use]
     pub fn on_target(&self) -> bool {
         match &self.aggregate {
             Aggregate::Meanable(a) => a.on_target(),
@@ -232,6 +267,11 @@ impl Metric {
 
 // Reporting functions
 impl Metric {
+    /// Report a valuye for Metrics that support `Aggregate::Countable`
+    ///
+    /// # Panics
+    ///
+    /// Will panic if attempt to report for other aggregate types
     pub fn report(&mut self) {
         match &mut self.aggregate {
             Aggregate::Countable(a) => a.report(),
@@ -239,6 +279,11 @@ impl Metric {
         }
     }
 
+    /// Report a valuye for Metrics that support `Aggregate::Countable`
+    ///
+    /// # Panics
+    ///
+    /// Will panic if attempt to report for other aggregate types
     pub fn report_bool(&mut self, value: bool) {
         match &mut self.aggregate {
             Aggregate::Percentable(a) => a.report_bool(value),
@@ -246,6 +291,11 @@ impl Metric {
         }
     }
 
+    /// Report a valuye for Metrics that support `Aggregate::Countable`
+    ///
+    /// # Panics
+    ///
+    /// Will panic if attempt to report for other aggregate types
     pub fn report_duration(&mut self, value: Duration) {
         match &mut self.aggregate {
             Aggregate::Meanable(a) => a.report_duration(value),

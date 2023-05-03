@@ -1,3 +1,4 @@
+use binary_heap_plus::{BinaryHeap, MinComparator};
 use core::time::Duration;
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -5,11 +6,10 @@ use std::rc::Rc;
 
 use super::{Request, Status};
 use crate::routing::RequestData;
-use min_queue::MinQueue;
 
 pub struct Queue {
     inner: Vec<Rc<RefCell<Request>>>,
-    enqueued: MinQueue<Rc<RefCell<Request>>>,
+    enqueued: BinaryHeap<Rc<RefCell<Request>>, MinComparator>,
     waiting: HashMap<usize, (Rc<RefCell<Request>>, RequestData)>,
 }
 
@@ -17,7 +17,7 @@ impl Default for Queue {
     fn default() -> Self {
         Self {
             inner: vec![],
-            enqueued: MinQueue::new(),
+            enqueued: BinaryHeap::new_min(),
             waiting: HashMap::new(),
         }
     }
@@ -78,6 +78,7 @@ impl Queue {
         }
     }
 
+    #[must_use]
     pub fn next_tick(&self) -> Option<Duration> {
         self.enqueued.peek().map(|c| c.borrow().start())
     }
@@ -85,14 +86,17 @@ impl Queue {
 
 // Misc
 impl Queue {
+    #[must_use]
     pub fn requests(&self) -> &Vec<Rc<RefCell<Request>>> {
         &self.inner
     }
 
+    #[must_use]
     pub fn has_waiting(&self) -> bool {
         !self.waiting.is_empty()
     }
 
+    #[must_use]
     pub fn routing_data(&self) -> Vec<&RequestData> {
         self.waiting.values().map(|(_, r)| r).collect()
     }

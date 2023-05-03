@@ -75,7 +75,7 @@ impl Statistics {
         self.metrics.insert(m.metric(), m);
     }
 
-    #[allow(dead_code)]
+    #[must_use]
     pub fn get(&self, m: &MetricType) -> Option<&Metric> {
         self.metrics.get(m)
     }

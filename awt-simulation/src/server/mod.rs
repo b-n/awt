@@ -26,10 +26,12 @@ impl Default for Server {
 }
 
 impl Server {
+    #[must_use]
     pub fn id(&self) -> usize {
         self.id
     }
 
+    #[must_use]
     pub fn attributes(&self) -> &Vec<Attribute> {
         &self.attributes
     }
@@ -55,6 +57,7 @@ impl PartialOrd for QueueableServer {
 }
 
 impl QueueableServer {
+    #[must_use]
     pub fn new(server: Server) -> Self {
         Self {
             server,
@@ -62,6 +65,7 @@ impl QueueableServer {
         }
     }
 
+    #[must_use]
     pub fn server(&self) -> &Server {
         &self.server
     }

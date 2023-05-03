@@ -6,7 +6,7 @@ pub struct Attribute {
 }
 
 impl Attribute {
-    #[allow(dead_code)]
+    #[must_use]
     pub fn new(name: &str, level: Option<usize>) -> Self {
         Self {
             name: name.to_string(),
