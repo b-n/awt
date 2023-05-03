@@ -17,8 +17,7 @@ repository.workspace = true
 
 [workspace]
 members = [
-  "awt-simulation",
-  "min-queue"
+  "awt-simulation"
 ]
 
 [workspace.package]

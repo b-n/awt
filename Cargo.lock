@@ -89,7 +89,6 @@ name = "awt-simulation"
 version = "0.1.0"
 dependencies = [
  "binary-heap-plus",
- "min-queue",
  "rand",
  "serde",
  "thiserror",
@@ -368,10 +367,6 @@ checksum = "d61c719bcfbcf5d62b3a09efa6088de8c54bc0bfcd3ea7ae39fcc186108b8de1"
 dependencies = [
  "autocfg",
 ]
-
-[[package]]
-name = "min-queue"
-version = "0.1.0"
 
 [[package]]
 name = "num_cpus"
