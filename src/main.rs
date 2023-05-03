@@ -47,18 +47,13 @@ use rayon::prelude::*;
 use std::thread::available_parallelism;
 
 mod args;
-mod attribute;
 mod config;
-mod metric;
-mod min_queue;
-mod simulation;
 
 use args::{log_level, Args};
-use attribute::Attribute;
+use awt_simulation::{
+    metric::Metric, Attribute, Client, Error as SimulationError, Server, Simulation,
+};
 use config::Config;
-use metric::{Metric, MetricType};
-use min_queue::MinQueue;
-use simulation::{Client, Error as SimulationError, Server, Simulation};
 
 fn run_sim(
     counter: usize,

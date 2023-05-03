@@ -4,8 +4,8 @@ use std::collections::HashMap;
 use std::rc::Rc;
 
 use super::{Request, Status};
-use crate::simulation::routing::RequestData;
-use crate::MinQueue;
+use crate::routing::RequestData;
+use min_queue::MinQueue;
 
 pub struct Queue {
     inner: Vec<Rc<RefCell<Request>>>,

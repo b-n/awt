@@ -1,6 +1,6 @@
 use core::time::Duration;
 
-use crate::{simulation::Request, Attribute};
+use crate::{Attribute, Request};
 
 #[allow(dead_code)]
 pub struct RequestData {

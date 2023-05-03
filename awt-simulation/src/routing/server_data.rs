@@ -1,4 +1,4 @@
-use crate::{simulation::Server, Attribute};
+use crate::{Attribute, Server};
 
 #[allow(dead_code)]
 pub struct ServerData {

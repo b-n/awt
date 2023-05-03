@@ -1,5 +1,7 @@
+mod attribute;
 mod client;
 mod error;
+pub mod metric;
 mod request;
 mod routing;
 mod server;
@@ -8,13 +10,14 @@ mod statistics;
 use core::time::Duration;
 use rand::{Rng, RngCore};
 
+pub use attribute::Attribute;
 pub use client::Client;
 pub use error::Error;
 pub use request::{Queue as RequestQueue, Request, Status as RequestStatus};
 pub use server::{Queue as ServerQueue, QueueableServer, Server};
 pub use statistics::Statistics;
 
-use crate::{Attribute, Metric};
+use metric::{Metric, MetricType};
 use routing::route_requests;
 
 pub type Result<T> = std::result::Result<T, Error>;

@@ -1,6 +1,5 @@
-use serde::Deserialize;
-
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize))]
 pub struct Attribute {
     name: String,
     level: Option<usize>,

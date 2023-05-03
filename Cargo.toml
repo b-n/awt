@@ -2,18 +2,30 @@
 name = "awt"
 version = "0.1.0"
 categories = ["games", "simulation"]
-edition = "2021"
 keywords = ["awt"]
-license = "MIT"
-readme = "README.md"
-repository = "https://github.com/b-n/awt"
 description = "A simulation engine which can emulate a client/server with multiple requests."
-homepage = "https://github.com/b-n/awt"
 documentation = "https://docs.rs/awt"
 exclude = [
   "/.github",
   "/docs"
 ]
+readme = "README.md"
+edition.workspace = true
+license.workspace = true
+homepage.workspace = true
+repository.workspace = true
+
+[workspace]
+members = [
+  "awt-simulation",
+  "min-queue"
+]
+
+[workspace.package]
+edition = "2021"
+license = "MIT"
+homepage = "https://github.com/b-n/awt"
+repository = "https://github.com/b-n/awt"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -27,3 +39,4 @@ serde = { version = "1.0", features = ['derive'] }
 simple_logger = "4.1.0"
 thiserror = "1.0"
 toml = "0.4"
+awt-simulation = { version = "0.1", path = "awt-simulation", features = ["serde"] }
