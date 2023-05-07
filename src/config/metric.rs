@@ -4,7 +4,7 @@ use std::convert::TryFrom;
 use thiserror::Error;
 use toml::Value;
 
-use awt_simulation::metric::{
+use awt_metrics::{
     Metric as SimMetric, MetricError as SimMetricError, MetricType as SimMetricType,
 };
 

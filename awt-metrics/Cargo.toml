@@ -1,0 +1,15 @@
+[package]
+name = "awt-metrics"
+version = "0.1.0"
+description = "Metrics counting for awt-simulation"
+categories = ["config"]
+keywords = ["awt", "simulation"]
+readme = "README.md"
+edition.workspace = true
+license.workspace = true
+homepage.workspace = true
+repository.workspace = true
+
+[dependencies]
+thiserror = "1.0"
+awt-simulation = { version = "0.1", path = "../awt-simulation" }

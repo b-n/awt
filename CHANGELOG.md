@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - BREAKING: Changed public exports on some of the more hidden internals of `Simulation`'s
 - BREAKING: Changed `Simulation::new()` construction
+- Split the counting/aggreagting of the simulation data into it's own crate
 
 ### Fixed
 

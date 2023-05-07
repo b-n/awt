@@ -48,16 +48,19 @@ mod args;
 mod config;
 
 use args::{log_level, Args};
+use awt_metrics::{Aggregator, Metric};
 use awt_simulation::{
-    attribute::Attribute, client::Client, error::Error as SimulationError, metric::Metric,
-    server::Server, Config as SimulationConfig, Simulation,
+    attribute::Attribute, client::Client, error::Error as SimulationError, server::Server,
+    Config as SimulationConfig, Simulation,
 };
+
 use config::Config;
 
-fn run_sim(counter: usize, config: SimulationConfig) -> Result<(), SimulationError> {
-    // Rust docs says we can trust this won't fail 🤞
-    // Ref: https://docs.rs/rand/latest/rand/rngs/struct.SmallRng.html#examples
-    //
+fn run_sim(
+    counter: usize,
+    config: SimulationConfig,
+    metrics: &[Metric],
+) -> Result<(), SimulationError> {
     let mut sim = Simulation::from_config(config);
     info!(target: "main", "sim {counter}: created");
 
@@ -67,7 +70,10 @@ fn run_sim(counter: usize, config: SimulationConfig) -> Result<(), SimulationErr
     while sim.tick() {}
     info!(target: "main", "sim {counter}: finished ticking");
 
-    println!("Sim {counter} {:?}\n{}", sim.running(), sim.statistics()?);
+    let mut stats = Aggregator::with_metrics(metrics);
+    stats.calculate(sim.requests());
+
+    println!("Sim {counter} {:?}\n{}", sim.running(), stats);
     Ok(())
 }
 
@@ -103,8 +109,10 @@ fn try_main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Retrieve all the required values from the config prior to starting the simulation run('s)
     let simulations = config.simulations;
-    let simulation_config = config.simulation_config()?;
+    let simulation_config = config.simulation_config();
     trace!(target: "main", "config: {simulation_config:?}");
+
+    let metrics = config.metrics()?;
 
     (0..simulations)
         .into_par_iter()
@@ -112,7 +120,7 @@ fn try_main() -> Result<(), Box<dyn std::error::Error>> {
             // Simulation config is cloned for each run since these are consumed by each simulation
             // which is done to ensure data encapsulation. Trade off is memory footprint, which is
             // rather small for these sims.
-            run_sim(sim, simulation_config.clone())
+            run_sim(sim, simulation_config.clone(), &metrics)
         })
         .collect::<Result<Vec<()>, SimulationError>>()?;
 

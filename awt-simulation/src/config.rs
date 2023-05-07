@@ -3,7 +3,6 @@ use core::time::Duration;
 use rand::{rngs::SmallRng, thread_rng, RngCore, SeedableRng};
 
 use crate::client::Client;
-use crate::metric::Metric;
 use crate::server::Server;
 
 #[derive(Clone, Debug)]
@@ -12,7 +11,6 @@ pub struct Config {
     pub(crate) tick_size: Duration,
     pub(crate) clients: Vec<Client>,
     pub(crate) servers: Vec<Server>,
-    pub(crate) metrics: Vec<Metric>,
     /// If None provided, the use thread_rng() to generate a seed
     rng_seed: Option<u64>,
 }
@@ -26,7 +24,6 @@ impl Config {
             tick_size,
             clients: vec![],
             servers: vec![],
-            metrics: vec![],
             rng_seed: None,
         }
     }
@@ -38,7 +35,6 @@ impl Config {
             tick_size,
             clients: vec![],
             servers: vec![],
-            metrics: vec![],
             rng_seed: Some(rng_seed),
         }
     }
@@ -51,10 +47,6 @@ impl Config {
 
     pub fn add_server(&mut self, server: Server) {
         self.servers.push(server);
-    }
-
-    pub fn add_metric(&mut self, metric: Metric) {
-        self.metrics.push(metric);
     }
 }
 

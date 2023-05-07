@@ -87,7 +87,7 @@ impl Queue {
 // Misc
 impl Queue {
     #[must_use]
-    pub fn requests(&self) -> &Vec<Rc<RefCell<Request>>> {
+    pub fn requests(&self) -> &[Rc<RefCell<Request>>] {
         &self.inner
     }
 

@@ -15,10 +15,8 @@ extern crate alloc;
 pub mod attribute;
 pub mod client;
 pub mod error;
-pub mod metric;
 pub mod request;
 pub mod server;
-pub mod statistics;
 
 mod config;
 mod routing;
@@ -30,11 +28,9 @@ use alloc::boxed::Box;
 use attribute::Attribute;
 use client::Client;
 use error::Error;
-use metric::{Metric, MetricType};
-use request::{queue::Queue as RequestQueue, Request, Status as RequestStatus};
+use request::{queue::Queue as RequestQueue, Request};
 use routing::route_requests;
 use server::{queue::Queue as ServerQueue, QueueableServer, Server};
-use statistics::Statistics;
 
 pub use config::Config;
 
@@ -49,7 +45,6 @@ pub struct Simulation {
     clients: Vec<Client>,
     request_queue: RequestQueue,
     server_queue: ServerQueue,
-    statistics: Statistics,
     rng: Box<dyn RngCore>,
 }
 
@@ -66,7 +61,6 @@ impl Simulation {
             clients: vec![],
             request_queue: RequestQueue::default(),
             server_queue: ServerQueue::default(),
-            statistics: Statistics::default(),
             rng,
         }
     }
@@ -85,7 +79,6 @@ impl Simulation {
         let mut sim = Self::new(config.end, config.tick_size, config.rng());
         sim.add_servers(config.servers);
         sim.add_clients(&mut config.clients);
-        sim.add_metrics(config.metrics);
         sim
     }
 }
@@ -130,26 +123,6 @@ impl Simulation {
         self.clients.append(clients);
     }
 
-    /// Add a `Metric` to the `Simulation`
-    ///
-    /// # Errors
-    ///
-    /// Will error when `Simulation` is already enabled.
-    pub fn add_metric(&mut self, metric: Metric) -> Result<()> {
-        if self.running {
-            return Err(Error::Enabled("add_metric".into()));
-        }
-
-        self.statistics.push(metric);
-        Ok(())
-    }
-
-    fn add_metrics(&mut self, metrics: Vec<Metric>) {
-        for metric in metrics {
-            self.statistics.push(metric);
-        }
-    }
-
     /// Enables the `Simulation` which will generate and schedule all simulation elements. The `Simulation` can then be
     /// advanced by calling the `tick()` until it returns false.
     ///
@@ -176,19 +149,9 @@ impl Simulation {
         (self.running, self.tick)
     }
 
-    /// Returns the `Statistics` object for this simulation.
-    ///
-    /// # Errors
-    ///
-    /// Will error if currently enabled and is still ticking.
-    pub fn statistics(&mut self) -> Result<&Statistics> {
-        if self.running {
-            return Err(Error::Enabled("statistics".into()));
-        }
-
-        let requests = self.request_queue.requests();
-        self.statistics.calculate(requests);
-        Ok(&self.statistics)
+    #[must_use]
+    pub fn requests(&self) -> &[alloc::rc::Rc<std::cell::RefCell<Request>>] {
+        self.request_queue.requests()
     }
 }
 
@@ -290,12 +253,27 @@ impl Simulation {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::MetricType;
 
+    use crate::request::Status;
     use rand::rngs::mock::StepRng;
+    use std::collections::HashMap;
 
     const TICK_SIZE: Duration = Duration::new(0, 50_000_000);
     const ONE_HOUR: Duration = Duration::new(60 * 60, 0);
+
+    fn request_stats(
+        requests: &[alloc::rc::Rc<std::cell::RefCell<Request>>],
+    ) -> HashMap<Status, usize> {
+        requests.iter().fold(HashMap::new(), |mut acc, r| {
+            let status = *r.borrow().status();
+            if let Some(v) = acc.get_mut(&status) {
+                *v += 1;
+            } else {
+                acc.insert(status, 1);
+            }
+            acc
+        })
+    }
 
     fn mock_rng() -> Box<dyn RngCore> {
         // Set the step size to be compatible with `gen_range`. `gen_range` restricts the domain by
@@ -304,38 +282,27 @@ mod tests {
         Box::new(StepRng::new(1, step))
     }
 
-    fn simulation() -> Result<Simulation> {
-        let mut sim = Simulation::new(ONE_HOUR, TICK_SIZE, mock_rng());
-
-        sim.add_metric(Metric::with_target_f64(MetricType::AbandonRate, 0.0).unwrap())?;
-        sim.add_metric(Metric::with_target_usize(MetricType::AnswerCount, 0).unwrap())?;
-
-        Ok(sim)
+    fn simulation() -> Simulation {
+        Simulation::new(ONE_HOUR, TICK_SIZE, mock_rng())
     }
 
     #[test]
     fn empty_sim() -> Result<()> {
-        let mut sim = simulation()?;
+        let mut sim = simulation();
 
         sim.enable()?;
 
         while sim.tick() {}
 
-        let stats = sim.statistics()?;
-        assert_eq!(
-            "None",
-            format!("{}", stats.get(&MetricType::AbandonRate).unwrap())
-        );
-        assert_eq!(
-            "0",
-            format!("{}", stats.get(&MetricType::AnswerCount).unwrap())
-        );
+        let stats = request_stats(sim.requests());
+        assert_eq!(None, stats.get(&Status::Answered));
+        assert_eq!(None, stats.get(&Status::Abandoned));
         Ok(assert_eq!((false, ONE_HOUR), sim.running()))
     }
 
     #[test]
     fn no_servers() -> Result<()> {
-        let mut sim = simulation()?;
+        let mut sim = simulation();
 
         let client = Client::default();
         sim.add_client(client)?;
@@ -344,21 +311,15 @@ mod tests {
 
         while sim.tick() {}
 
-        let stats = sim.statistics()?;
-        assert_eq!(
-            "1",
-            format!("{}", stats.get(&MetricType::AbandonRate).unwrap())
-        );
-        assert_eq!(
-            "0",
-            format!("{}", stats.get(&MetricType::AnswerCount).unwrap())
-        );
+        let stats = request_stats(sim.requests());
+        assert_eq!(None, stats.get(&Status::Answered));
+        assert_eq!(Some(&1), stats.get(&Status::Abandoned));
         Ok(assert_eq!((false, ONE_HOUR), sim.running()))
     }
 
     #[test]
     fn can_handle_requests() -> Result<()> {
-        let mut sim = simulation()?;
+        let mut sim = simulation();
 
         let client = Client::default();
         sim.add_client(client)?;
@@ -370,21 +331,15 @@ mod tests {
 
         while sim.tick() {}
 
-        let stats = sim.statistics()?;
-        assert_eq!(
-            "0",
-            format!("{}", stats.get(&MetricType::AbandonRate).unwrap())
-        );
-        assert_eq!(
-            "1",
-            format!("{}", stats.get(&MetricType::AnswerCount).unwrap())
-        );
+        let stats = request_stats(sim.requests());
+        assert_eq!(Some(&1), stats.get(&Status::Answered));
+        assert_eq!(None, stats.get(&Status::Abandoned));
         Ok(assert_eq!((false, ONE_HOUR), sim.running()))
     }
 
     #[test]
     fn requests_can_abandon() -> Result<()> {
-        let mut sim = simulation()?;
+        let mut sim = simulation();
 
         // Ensure two requests are provided in a way that the second cannot be handled in time
         let client = Client {
@@ -401,15 +356,9 @@ mod tests {
 
         while sim.tick() {}
 
-        let stats = sim.statistics()?;
-        assert_eq!(
-            "0.5",
-            format!("{}", stats.get(&MetricType::AbandonRate).unwrap())
-        );
-        assert_eq!(
-            "1",
-            format!("{}", stats.get(&MetricType::AnswerCount).unwrap())
-        );
+        let stats = request_stats(sim.requests());
+        assert_eq!(Some(&1), stats.get(&Status::Answered));
+        assert_eq!(Some(&1), stats.get(&Status::Abandoned));
         Ok(assert_eq!((false, ONE_HOUR), sim.running()))
     }
 

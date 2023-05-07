@@ -4,50 +4,50 @@ use core::fmt::{Debug, Display, Formatter, Result};
 use std::cell::{Ref, RefCell};
 use std::collections::HashMap;
 
-use super::{Request, RequestStatus};
+use awt_simulation::request::{Request, Status};
+
 use crate::{Metric, MetricType};
 
 #[derive(Default)]
-pub struct Statistics {
+pub struct Aggregator {
     metrics: HashMap<MetricType, Metric>,
-    calculated: bool,
 }
 
 fn report(m: &mut Metric, r: &Ref<'_, Request>) {
     match m.metric() {
-        MetricType::ServiceLevel(ticks) if &RequestStatus::Answered == r.status() => {
+        MetricType::ServiceLevel(ticks) if &Status::Answered == r.status() => {
             if let Some(tick) = r.wait_time() {
                 m.report_bool(tick <= ticks);
             }
         }
-        MetricType::AverageWorkTime if &RequestStatus::Answered == r.status() => {
+        MetricType::AverageWorkTime if &Status::Answered == r.status() => {
             if let Some(tick) = r.handle_time() {
                 m.report_duration(tick);
             }
         }
-        MetricType::AverageSpeedAnswer if &RequestStatus::Answered == r.status() => {
+        MetricType::AverageSpeedAnswer if &Status::Answered == r.status() => {
             if let Some(tick) = r.wait_time() {
                 m.report_duration(tick);
             }
         }
-        MetricType::AverageTimeToAbandon if &RequestStatus::Abandoned == r.status() => {
+        MetricType::AverageTimeToAbandon if &Status::Abandoned == r.status() => {
             if let Some(tick) = r.wait_time() {
                 m.report_duration(tick);
             }
         }
-        MetricType::AbandonRate => m.report_bool(&RequestStatus::Abandoned == r.status()),
+        MetricType::AbandonRate => m.report_bool(&Status::Abandoned == r.status()),
         MetricType::AverageTimeInQueue => {
             if let Some(tick) = r.wait_time() {
                 m.report_duration(tick);
             }
         }
-        MetricType::AnswerCount if &RequestStatus::Answered == r.status() => m.report(),
+        MetricType::AnswerCount if &Status::Answered == r.status() => m.report(),
         MetricType::UtilisationTime => todo!(),
         _ => (),
     }
 }
 
-impl Display for Statistics {
+impl Display for Aggregator {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         for metric in self.metrics.values() {
             writeln!(
@@ -62,7 +62,7 @@ impl Display for Statistics {
     }
 }
 
-impl Debug for Statistics {
+impl Debug for Aggregator {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         for metric in &self.metrics {
             writeln!(f, "{metric:?}")?;
@@ -71,21 +71,18 @@ impl Debug for Statistics {
     }
 }
 
-impl Statistics {
+impl Aggregator {
+    #[must_use]
+    pub fn with_metrics(metrics: &[Metric]) -> Self {
+        let metrics = metrics.iter().map(|m| (m.metric(), m.clone())).collect();
+        Self { metrics }
+    }
+
     pub fn push(&mut self, m: Metric) {
         self.metrics.insert(m.metric(), m);
     }
 
-    #[must_use]
-    pub fn get(&self, m: &MetricType) -> Option<&Metric> {
-        self.metrics.get(m)
-    }
-
-    pub fn calculate(&mut self, requests: &Vec<Rc<RefCell<Request>>>) {
-        if self.calculated {
-            return;
-        }
-
+    pub fn calculate(&mut self, requests: &[Rc<RefCell<Request>>]) {
         for request in requests {
             for metric in &mut self.metrics.values_mut() {
                 report(metric, &request.borrow());

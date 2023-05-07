@@ -51,7 +51,7 @@ impl TryFrom<&PathBuf> for Config {
 }
 
 impl Config {
-    pub fn simulation_config(&self) -> Result<SimulationConfig, ConfigError> {
+    pub fn simulation_config(&self) -> SimulationConfig {
         let mut simulation_config = SimulationConfig::new(self.tick_until, self.tick_size);
         for client in self.clients() {
             simulation_config.add_client(client);
@@ -59,10 +59,7 @@ impl Config {
         for server in self.servers() {
             simulation_config.add_server(server);
         }
-        for metric in self.metrics()? {
-            simulation_config.add_metric(metric);
-        }
-        Ok(simulation_config)
+        simulation_config
     }
 }
 

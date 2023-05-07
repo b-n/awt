@@ -17,7 +17,8 @@ repository.workspace = true
 
 [workspace]
 members = [
-  "awt-simulation"
+  "awt-simulation",
+  "awt-metrics"
 ]
 
 [workspace.package]
@@ -39,3 +40,4 @@ simple_logger = "4.1.0"
 thiserror = "1.0"
 toml = "0.4"
 awt-simulation = { version = "0.1", path = "awt-simulation", features = ["serde"] }
+awt-metrics = { version = "0.1", path = "awt-metrics" }
