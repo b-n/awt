@@ -11,6 +11,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- BREAKING: Changed public exports on some of the more hidden internals of `Simulation`'s
+- BREAKING: Changed `Simulation::new()` construction
+
 ### Fixed
 
 ## [0.1.0] - 2020-04-30

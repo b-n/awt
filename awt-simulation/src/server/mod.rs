@@ -3,9 +3,7 @@ use core::time::Duration;
 use std::cmp::Ordering;
 use std::sync::{atomic, atomic::AtomicUsize};
 
-mod queue;
-
-pub use queue::Queue;
+pub(crate) mod queue;
 
 static ID_COUNTER: AtomicUsize = AtomicUsize::new(0);
 

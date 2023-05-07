@@ -1,7 +1,7 @@
 use crate::{Attribute, Server};
 
 #[allow(dead_code)]
-pub struct ServerData {
+pub(crate) struct ServerData {
     pub id: usize,
     pub attributes: Vec<Attribute>,
 }

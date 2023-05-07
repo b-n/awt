@@ -3,7 +3,7 @@ use core::time::Duration;
 use crate::{Attribute, Request};
 
 #[allow(dead_code)]
-pub struct RequestData {
+pub(crate) struct RequestData {
     pub id: usize,
     pub start: Duration,
     pub required_attributes: Vec<Attribute>,

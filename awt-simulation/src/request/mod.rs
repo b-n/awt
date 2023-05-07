@@ -1,6 +1,4 @@
-pub mod queue;
-
-pub use queue::Queue;
+pub(crate) mod queue;
 
 use core::time::Duration;
 use std::cmp::Ordering;

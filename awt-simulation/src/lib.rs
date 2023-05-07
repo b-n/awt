@@ -10,27 +10,27 @@
 #![warn(unused_qualifications)]
 #![warn(variant_size_difference)]
 
-mod attribute;
-mod client;
-mod error;
+pub mod attribute;
+pub mod client;
+pub mod error;
 pub mod metric;
-mod request;
+pub mod request;
+pub mod server;
+pub mod statistics;
+
 mod routing;
-mod server;
-mod statistics;
 
 use core::time::Duration;
 use rand::{Rng, RngCore};
 
-pub use attribute::Attribute;
-pub use client::Client;
-pub use error::Error;
-pub use request::{Queue as RequestQueue, Request, Status as RequestStatus};
-pub use server::{Queue as ServerQueue, QueueableServer, Server};
-pub use statistics::Statistics;
-
+use attribute::Attribute;
+use client::Client;
+use error::Error;
 use metric::{Metric, MetricType};
+use request::{queue::Queue as RequestQueue, Request, Status as RequestStatus};
 use routing::route_requests;
+use server::{queue::Queue as ServerQueue, QueueableServer, Server};
+use statistics::Statistics;
 
 pub type Result<T> = std::result::Result<T, Error>;
 
@@ -38,7 +38,7 @@ pub struct Simulation {
     start: Duration,
     tick: Duration,
     tick_size: Duration,
-    tick_until: Duration,
+    end: Duration,
     running: bool,
     clients: Vec<Client>,
     request_queue: RequestQueue,
@@ -49,12 +49,12 @@ pub struct Simulation {
 
 impl Simulation {
     #[must_use]
-    pub fn new(rng: Box<dyn RngCore>, tick_size: Duration, tick_until: Duration) -> Self {
+    pub fn new(end: Duration, tick_size: Duration, rng: Box<dyn RngCore>) -> Self {
         Self {
             start: Duration::ZERO,
             tick: Duration::ZERO,
             tick_size,
-            tick_until,
+            end,
             running: false,
             clients: vec![],
             request_queue: RequestQueue::default(),
@@ -155,7 +155,7 @@ impl Simulation {
 impl Simulation {
     fn generate_requests(&mut self) {
         let mut request_from_client = |c: &Client| -> Request {
-            let start = self.rng.gen_range(self.start..=self.tick_until);
+            let start = self.rng.gen_range(self.start..=self.end);
             let abandon_ticks = start + c.abandon_time;
             let handle_ticks = c.handle_time;
 
@@ -233,13 +233,13 @@ impl Simulation {
             match (request_buffer_head, server_buffer_head) {
                 (Some(t), Some(u)) if t <= u => t,
                 (Some(_) | None, Some(t)) | (Some(t), None) => t,
-                (None, None) => self.tick_until,
+                (None, None) => self.end,
             }
         };
 
-        if self.tick >= self.tick_until {
+        if self.tick >= self.end {
             self.running = false;
-            self.tick = self.tick_until;
+            self.tick = self.end;
         }
 
         self.running
@@ -264,7 +264,7 @@ mod tests {
     }
 
     fn simulation() -> Result<Simulation> {
-        let mut sim = Simulation::new(mock_rng(), TICK_SIZE, ONE_HOUR);
+        let mut sim = Simulation::new(ONE_HOUR, TICK_SIZE, mock_rng());
 
         sim.add_metric(Metric::with_target_f64(MetricType::AbandonRate, 0.0).unwrap())?;
         sim.add_metric(Metric::with_target_usize(MetricType::AnswerCount, 0).unwrap())?;
@@ -374,7 +374,7 @@ mod tests {
 
     #[test]
     fn cannot_add_profiles_whilst_running() -> Result<()> {
-        let mut sim = Simulation::new(mock_rng(), TICK_SIZE, ONE_HOUR);
+        let mut sim = Simulation::new(ONE_HOUR, TICK_SIZE, mock_rng());
         sim.enable()?;
 
         // Cannot add profile to running sim
@@ -384,7 +384,7 @@ mod tests {
 
     #[test]
     fn cannot_enable_twice() -> Result<()> {
-        let mut sim = Simulation::new(mock_rng(), TICK_SIZE, ONE_HOUR);
+        let mut sim = Simulation::new(ONE_HOUR, TICK_SIZE, mock_rng());
         sim.enable()?;
 
         // Cannot enable twice
@@ -393,7 +393,7 @@ mod tests {
 
     #[test]
     fn cannot_add_server_whilst_running() -> Result<()> {
-        let mut sim = Simulation::new(mock_rng(), TICK_SIZE, ONE_HOUR);
+        let mut sim = Simulation::new(ONE_HOUR, TICK_SIZE, mock_rng());
         sim.enable()?;
 
         let server = Server::default();

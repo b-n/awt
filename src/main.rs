@@ -51,7 +51,8 @@ mod config;
 
 use args::{log_level, Args};
 use awt_simulation::{
-    metric::Metric, Attribute, Client, Error as SimulationError, Server, Simulation,
+    attribute::Attribute, client::Client, error::Error as SimulationError, metric::Metric,
+    server::Server, Simulation,
 };
 use config::Config;
 
@@ -66,7 +67,7 @@ fn run_sim(
     // Rust docs says we can trust this won't fail 🤞
     // Ref: https://docs.rs/rand/latest/rand/rngs/struct.SmallRng.html#examples
     let rng = Box::new(SmallRng::from_rng(thread_rng()).unwrap());
-    let mut sim = Simulation::new(rng, tick_size, tick_until);
+    let mut sim = Simulation::new(tick_until, tick_size, rng);
     info!(target: "main", "sim {counter}: created");
 
     for server in servers {

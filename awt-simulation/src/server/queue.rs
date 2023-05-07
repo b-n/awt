@@ -7,7 +7,7 @@ use std::rc::Rc;
 use super::QueueableServer;
 use crate::routing::ServerData;
 
-pub struct Queue {
+pub(crate) struct Queue {
     inner: Vec<Rc<RefCell<QueueableServer>>>,
     enqueued: BinaryHeap<Rc<RefCell<QueueableServer>>, MinComparator>,
     waiting: HashMap<usize, (Rc<RefCell<QueueableServer>>, ServerData)>,
