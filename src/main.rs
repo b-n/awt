@@ -40,9 +40,7 @@
 #![allow(clippy::multiple_crate_versions)]
 
 use clap::Parser;
-use core::time::Duration;
 use log::{debug, error, info, trace};
-use rand::{rngs::SmallRng, thread_rng, SeedableRng};
 use rayon::prelude::*;
 use std::thread::available_parallelism;
 
@@ -52,38 +50,16 @@ mod config;
 use args::{log_level, Args};
 use awt_simulation::{
     attribute::Attribute, client::Client, error::Error as SimulationError, metric::Metric,
-    server::Server, Simulation,
+    server::Server, Config as SimulationConfig, Simulation,
 };
 use config::Config;
 
-fn run_sim(
-    counter: usize,
-    tick_size: Duration,
-    tick_until: Duration,
-    servers: Vec<Server>,
-    clients: Vec<Client>,
-    metrics: Vec<Metric>,
-) -> Result<(), SimulationError> {
+fn run_sim(counter: usize, config: SimulationConfig) -> Result<(), SimulationError> {
     // Rust docs says we can trust this won't fail 🤞
     // Ref: https://docs.rs/rand/latest/rand/rngs/struct.SmallRng.html#examples
-    let rng = Box::new(SmallRng::from_rng(thread_rng()).unwrap());
-    let mut sim = Simulation::new(tick_until, tick_size, rng);
+    //
+    let mut sim = Simulation::from_config(config);
     info!(target: "main", "sim {counter}: created");
-
-    for server in servers {
-        sim.add_server(server)?;
-    }
-    trace!(target: "main", "sim {counter}: added servers");
-
-    for client in clients {
-        sim.add_client(client)?;
-    }
-    trace!(target: "main", "sim {counter}: added clients");
-
-    for metric in metrics {
-        sim.add_metric(metric)?;
-    }
-    trace!(target: "main", "sim {counter}: added metrics");
 
     sim.enable()?;
     info!(target: "main", "sim {counter}: enabled");
@@ -126,31 +102,17 @@ fn try_main() -> Result<(), Box<dyn std::error::Error>> {
     debug!(target: "main", "setting rayon to use {sim_threads} threads");
 
     // Retrieve all the required values from the config prior to starting the simulation run('s)
-    let clients = config.clients();
-    trace!(target: "main", "clients: {clients:?}");
-    let servers = config.servers();
-    trace!(target: "main", "servers: {servers:?}");
-    let metrics = config.metrics()?;
-    trace!(target: "main", "metrics: {metrics:?}");
     let simulations = config.simulations;
-    let tick_size = config.tick_size;
-    let tick_until = config.tick_until;
-    trace!(target: "main", "sim: ({simulations}, {tick_size:?}, {tick_until:?}");
+    let simulation_config = config.simulation_config()?;
+    trace!(target: "main", "config: {simulation_config:?}");
 
     (0..simulations)
         .into_par_iter()
         .map(|sim| {
-            // All values are cloned from the above instead of generating each round. All simulation
-            // data is owned to ensure encapsulation of the data, and for speed at the trade off of
-            // memory usage (which is very small per sim).
-            run_sim(
-                sim,
-                tick_size,
-                tick_until,
-                servers.clone(),
-                clients.clone(),
-                metrics.clone(),
-            )
+            // Simulation config is cloned for each run since these are consumed by each simulation
+            // which is done to ensure data encapsulation. Trade off is memory footprint, which is
+            // rather small for these sims.
+            run_sim(sim, simulation_config.clone())
         })
         .collect::<Result<Vec<()>, SimulationError>>()?;
 

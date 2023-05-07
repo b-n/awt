@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Configure a simulation with `Simulation::Config` and `Simulation::from_config` to reduce
+  boilerplate. `Simulation::Config` are cloneable, and support specifying simulation seeds.
+
 ### Changed
 
 - BREAKING: Changed public exports on some of the more hidden internals of `Simulation`'s

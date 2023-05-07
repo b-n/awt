@@ -1,3 +1,4 @@
+use awt_simulation::Config as SimulationConfig;
 use core::time::Duration;
 use serde::Deserialize;
 use std::convert::TryFrom;
@@ -46,6 +47,22 @@ impl TryFrom<&PathBuf> for Config {
         file.read_to_string(&mut toml)?;
 
         Ok(toml::from_str::<Config>(&toml)?)
+    }
+}
+
+impl Config {
+    pub fn simulation_config(&self) -> Result<SimulationConfig, ConfigError> {
+        let mut simulation_config = SimulationConfig::new(self.tick_until, self.tick_size);
+        for client in self.clients() {
+            simulation_config.add_client(client);
+        }
+        for server in self.servers() {
+            simulation_config.add_server(server);
+        }
+        for metric in self.metrics()? {
+            simulation_config.add_metric(metric);
+        }
+        Ok(simulation_config)
     }
 }
 

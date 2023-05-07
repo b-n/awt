@@ -18,6 +18,7 @@ pub mod request;
 pub mod server;
 pub mod statistics;
 
+mod config;
 mod routing;
 
 use core::time::Duration;
@@ -31,6 +32,8 @@ use request::{queue::Queue as RequestQueue, Request, Status as RequestStatus};
 use routing::route_requests;
 use server::{queue::Queue as ServerQueue, QueueableServer, Server};
 use statistics::Statistics;
+
+pub use config::Config;
 
 pub type Result<T> = std::result::Result<T, Error>;
 
@@ -48,6 +51,7 @@ pub struct Simulation {
 }
 
 impl Simulation {
+    /// Generate a new Simulation
     #[must_use]
     pub fn new(end: Duration, tick_size: Duration, rng: Box<dyn RngCore>) -> Self {
         Self {
@@ -62,6 +66,24 @@ impl Simulation {
             statistics: Statistics::default(),
             rng,
         }
+    }
+
+    /// Generate a Simulation from a `Config`
+    ///
+    /// This function consumes the provided config so ensure the config is cloned before trying to
+    /// use in other simulations.
+    ///
+    /// # Panics
+    ///
+    /// Will panic if no `rng_seed` supplied, and `thread_rng` fails to produce enough bytes for
+    /// seeding the RNG (very unlikely).
+    #[must_use]
+    pub fn from_config(mut config: Config) -> Self {
+        let mut sim = Self::new(config.end, config.tick_size, config.rng());
+        sim.add_servers(config.servers);
+        sim.add_clients(&mut config.clients);
+        sim.add_metrics(config.metrics);
+        sim
     }
 }
 
@@ -80,6 +102,12 @@ impl Simulation {
         Ok(())
     }
 
+    fn add_servers(&mut self, servers: Vec<Server>) {
+        for server in servers {
+            self.server_queue.push(QueueableServer::new(server));
+        }
+    }
+
     /// Add a `Client` to the `Simulation`
     ///
     /// # Errors
@@ -95,6 +123,10 @@ impl Simulation {
         Ok(())
     }
 
+    fn add_clients(&mut self, clients: &mut Vec<Client>) {
+        self.clients.append(clients);
+    }
+
     /// Add a `Metric` to the `Simulation`
     ///
     /// # Errors
@@ -107,6 +139,12 @@ impl Simulation {
 
         self.statistics.push(metric);
         Ok(())
+    }
+
+    fn add_metrics(&mut self, metrics: Vec<Metric>) {
+        for metric in metrics {
+            self.statistics.push(metric);
+        }
     }
 
     /// Enables the `Simulation` which will generate and schedule all simulation elements. The `Simulation` can then be
