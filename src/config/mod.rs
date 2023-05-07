@@ -64,7 +64,7 @@ impl Config {
 }
 
 impl Config {
-    pub fn clients(&self) -> Vec<crate::Client> {
+    pub fn clients(&self) -> Vec<awt_simulation::client::Client> {
         self.clients
             .iter()
             .flat_map(|client_config| {
@@ -75,7 +75,7 @@ impl Config {
             .collect()
     }
 
-    pub fn servers(&self) -> Vec<crate::Server> {
+    pub fn servers(&self) -> Vec<awt_simulation::server::Server> {
         self.servers
             .iter()
             .flat_map(|server_config| {
@@ -86,7 +86,7 @@ impl Config {
             .collect()
     }
 
-    pub fn metrics(&self) -> Result<Vec<crate::Metric>, ConfigError> {
+    pub fn metrics(&self) -> Result<Vec<awt_metrics::Metric>, ConfigError> {
         self.metrics
             .iter()
             .map(crate::Metric::try_from)
