@@ -1,4 +1,5 @@
 use core::time::Duration;
+use core::{fmt, fmt::Display, fmt::Formatter};
 
 /// Enumerates a metric to trace on a `Request`.
 #[allow(clippy::module_name_repetitions)]
@@ -30,8 +31,8 @@ pub enum Aggregate {
     Percentable(Percentable),
 }
 
-impl std::fmt::Display for Aggregate {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl Display for Aggregate {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
             Self::Meanable(a) => write!(f, "{a}"),
             Self::Countable(a) => write!(f, "{a}"),
@@ -49,8 +50,8 @@ pub struct Meanable {
     target: Duration,
 }
 
-impl std::fmt::Display for Meanable {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl Display for Meanable {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         if self.count == 0 {
             return write!(f, "None");
         }
@@ -91,8 +92,8 @@ pub struct Countable {
     target: usize,
 }
 
-impl std::fmt::Display for Countable {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl Display for Countable {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.count)
     }
 }
@@ -127,9 +128,9 @@ pub struct Percentable {
     target: f64,
 }
 
-impl std::fmt::Display for Percentable {
+impl Display for Percentable {
     #[allow(clippy::cast_precision_loss)]
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         if self.count == 0 {
             return write!(f, "None");
         }
@@ -171,8 +172,8 @@ pub struct Metric {
     aggregate: Aggregate,
 }
 
-impl std::fmt::Display for Metric {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl Display for Metric {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.aggregate)
     }
 }

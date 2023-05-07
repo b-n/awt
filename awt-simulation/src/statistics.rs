@@ -1,7 +1,8 @@
-use core::fmt::{Debug, Display};
+use alloc::format;
+use alloc::rc::Rc;
+use core::fmt::{Debug, Display, Formatter, Result};
 use std::cell::{Ref, RefCell};
 use std::collections::HashMap;
-use std::rc::Rc;
 
 use super::{Request, RequestStatus};
 use crate::{Metric, MetricType};
@@ -47,7 +48,7 @@ fn report(m: &mut Metric, r: &Ref<'_, Request>) {
 }
 
 impl Display for Statistics {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         for metric in self.metrics.values() {
             writeln!(
                 f,
@@ -62,7 +63,7 @@ impl Display for Statistics {
 }
 
 impl Debug for Statistics {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         for metric in &self.metrics {
             writeln!(f, "{metric:?}")?;
         }

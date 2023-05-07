@@ -1,7 +1,7 @@
 pub(crate) mod queue;
 
+use core::cmp::Ordering;
 use core::time::Duration;
-use std::cmp::Ordering;
 use std::sync::{atomic, atomic::AtomicUsize};
 
 use super::{Attribute, Client};

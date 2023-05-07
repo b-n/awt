@@ -1,8 +1,8 @@
+use alloc::rc::Rc;
 use binary_heap_plus::{BinaryHeap, MinComparator};
 use core::time::Duration;
 use std::cell::RefCell;
 use std::collections::HashMap;
-use std::rc::Rc;
 
 use super::{Request, Status};
 use crate::routing::RequestData;

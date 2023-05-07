@@ -1,6 +1,6 @@
 use super::Attribute;
+use core::cmp::Ordering;
 use core::time::Duration;
-use std::cmp::Ordering;
 use std::sync::{atomic, atomic::AtomicUsize};
 
 pub(crate) mod queue;

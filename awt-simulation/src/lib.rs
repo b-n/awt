@@ -10,6 +10,8 @@
 #![warn(unused_qualifications)]
 #![warn(variant_size_difference)]
 
+extern crate alloc;
+
 pub mod attribute;
 pub mod client;
 pub mod error;
@@ -24,6 +26,7 @@ mod routing;
 use core::time::Duration;
 use rand::{Rng, RngCore};
 
+use alloc::boxed::Box;
 use attribute::Attribute;
 use client::Client;
 use error::Error;
@@ -35,7 +38,7 @@ use statistics::Statistics;
 
 pub use config::Config;
 
-pub type Result<T> = std::result::Result<T, Error>;
+pub type Result<T> = core::result::Result<T, Error>;
 
 pub struct Simulation {
     start: Duration,
