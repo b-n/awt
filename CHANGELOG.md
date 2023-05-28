@@ -10,13 +10,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Configure a simulation with `Simulation::Config` and `Simulation::from_config` to reduce
-  boilerplate. `Simulation::Config` are cloneable, and support specifying simulation seeds.
+  boilerplate.
+- Added `par_iter` for Simlation Config to make the generation and running of simulations easier.
 
 ### Changed
 
-- BREAKING: Changed public exports on some of the more hidden internals of `Simulation`'s
-- BREAKING: Changed `Simulation::new()` construction
+- BREAKING: Changed public exports on some of the more hidden internals of `Simulation`s
+- BREAKING: Changed `Simulation::new()` construction - specifically, this now requires a rng.
 - Split the counting/aggreagting of the simulation data into it's own crate
+- awt-simulation is now `no_std` compliant. Still requires `alloc` however.
 
 ### Fixed
 
