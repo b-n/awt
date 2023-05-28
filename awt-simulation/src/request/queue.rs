@@ -1,8 +1,9 @@
 use alloc::rc::Rc;
+use alloc::vec::Vec;
 use binary_heap_plus::{BinaryHeap, MinComparator};
+use core::cell::RefCell;
 use core::time::Duration;
-use std::cell::RefCell;
-use std::collections::HashMap;
+use hashbrown::HashMap;
 
 use super::{Request, Status};
 use crate::routing::RequestData;
@@ -16,7 +17,7 @@ pub(crate) struct Queue {
 impl Default for Queue {
     fn default() -> Self {
         Self {
-            inner: vec![],
+            inner: Vec::new(),
             enqueued: BinaryHeap::new_min(),
             waiting: HashMap::new(),
         }

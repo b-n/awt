@@ -1,4 +1,5 @@
 use crate::{Attribute, Server};
+use alloc::vec::Vec;
 
 #[allow(dead_code)]
 pub(crate) struct ServerData {

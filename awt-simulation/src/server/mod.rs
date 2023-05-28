@@ -1,7 +1,8 @@
 use super::Attribute;
+use alloc::vec::Vec;
 use core::cmp::Ordering;
+use core::sync::{atomic, atomic::AtomicUsize};
 use core::time::Duration;
-use std::sync::{atomic, atomic::AtomicUsize};
 
 pub(crate) mod queue;
 
@@ -18,7 +19,7 @@ impl Default for Server {
     fn default() -> Self {
         Self {
             id: ID_COUNTER.fetch_add(1, atomic::Ordering::SeqCst),
-            attributes: vec![],
+            attributes: Vec::new(),
         }
     }
 }

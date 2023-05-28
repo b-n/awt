@@ -10,10 +10,12 @@ use std::io::Read;
 use std::path::PathBuf;
 use thiserror::Error;
 
+mod attribute;
 mod client;
 mod metric;
 mod server;
 
+use attribute::Attribute;
 use client::Client;
 use metric::Metric;
 use server::Server;

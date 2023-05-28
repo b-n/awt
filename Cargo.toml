@@ -39,5 +39,5 @@ serde = { version = "1.0", features = ['derive'] }
 simple_logger = "4.1.0"
 thiserror = "1.0"
 toml = "0.4"
-awt-simulation = { version = "0.1", path = "awt-simulation", features = ["serde"] }
+awt-simulation = { version = "0.1", path = "awt-simulation" }
 awt-metrics = { version = "0.1", path = "awt-metrics" }

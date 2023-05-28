@@ -1,16 +1,12 @@
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
-#[cfg_attr(feature = "serde", derive(serde::Deserialize))]
 pub struct Attribute {
-    name: String,
-    level: Option<usize>,
+    pub id: u64,
+    pub level: Option<usize>,
 }
 
 impl Attribute {
     #[must_use]
-    pub fn new(name: &str, level: Option<usize>) -> Self {
-        Self {
-            name: name.to_string(),
-            level,
-        }
+    pub fn new(id: u64, level: Option<usize>) -> Self {
+        Self { id, level }
     }
 }

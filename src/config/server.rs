@@ -1,6 +1,6 @@
 use serde::Deserialize;
 
-use crate::Attribute;
+use super::Attribute;
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 pub struct Server {
@@ -13,7 +13,7 @@ pub struct Server {
 impl From<&Server> for crate::Server {
     fn from(s: &Server) -> Self {
         Self {
-            attributes: s.attributes.clone(),
+            attributes: s.attributes.iter().map(crate::Attribute::from).collect(),
             ..Self::default()
         }
     }

@@ -11,10 +11,13 @@ homepage.workspace = true
 repository.workspace = true
 
 [features]
-serde = ["dep:serde"]
+default = ["std"]
+std = []
 
 [dependencies]
-serde = { version = "1.0", features = ['derive'], optional = true }
+# RngCore trait
 rand = "0.8"
-thiserror = "1.0"
+# Syntactic sugar to make a reverse heap
 binary-heap-plus = "0.5"
+# no_std compliant HashMap (also used by rust std)
+hashbrown = "0.13"

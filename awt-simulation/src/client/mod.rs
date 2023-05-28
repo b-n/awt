@@ -1,3 +1,4 @@
+use alloc::vec::Vec;
 use core::time::Duration;
 
 use crate::Attribute;
@@ -16,7 +17,7 @@ pub struct Client {
 impl Default for Client {
     fn default() -> Self {
         Self {
-            required_attributes: vec![],
+            required_attributes: Vec::new(),
             handle_time: FIVE_MINUTES,
             clean_up_time: Duration::ZERO,
             abandon_time: THIRTY_SECONDS,

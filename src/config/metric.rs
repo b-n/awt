@@ -27,7 +27,7 @@ impl core::fmt::Display for MetricType {
     }
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Debug, Clone)]
 pub struct Metric {
     pub metric: MetricType,
     pub sla: Option<Duration>,

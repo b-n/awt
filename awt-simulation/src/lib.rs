@@ -1,3 +1,4 @@
+#![cfg_attr(not(feature = "std"), no_std)]
 #![warn(clippy::all)]
 #![warn(clippy::pedantic)]
 #![warn(clippy::cargo)]
@@ -9,6 +10,10 @@
 #![warn(trivial_casts, trivial_numeric_casts)]
 #![warn(unused_qualifications)]
 #![warn(variant_size_difference)]
+
+#[cfg(any(feature = "std", test))]
+#[macro_use]
+extern crate std;
 
 extern crate alloc;
 
@@ -24,9 +29,10 @@ mod routing;
 use core::time::Duration;
 use rand::{Rng, RngCore};
 
-use alloc::boxed::Box;
+use alloc::{boxed::Box, rc::Rc, vec::Vec};
 use attribute::Attribute;
 use client::Client;
+use core::cell::RefCell;
 use error::Error;
 use request::{queue::Queue as RequestQueue, Request};
 use routing::route_requests;
@@ -58,7 +64,7 @@ impl Simulation {
             tick_size,
             end,
             running: false,
-            clients: vec![],
+            clients: Vec::new(),
             request_queue: RequestQueue::default(),
             server_queue: ServerQueue::default(),
             rng,
@@ -75,7 +81,7 @@ impl Simulation {
     /// Will error when `Simulation` is already enabled.
     pub fn add_server(&mut self, server: Server) -> Result<()> {
         if self.running {
-            return Err(Error::Enabled("add_server".into()));
+            return Err(Error::Enabled);
         }
         self.server_queue.push(QueueableServer::new(server));
         Ok(())
@@ -94,7 +100,7 @@ impl Simulation {
     /// Will error when `Simulation` is already enabled.
     pub fn add_client(&mut self, client: Client) -> Result<()> {
         if self.running {
-            return Err(Error::Enabled("add_client".into()));
+            return Err(Error::Enabled);
         }
 
         self.clients.push(client);
@@ -114,7 +120,7 @@ impl Simulation {
     /// Will error if already enabled.
     pub fn enable(&mut self) -> Result<bool> {
         if self.running {
-            return Err(Error::Enabled("enable".into()));
+            return Err(Error::Enabled);
         }
 
         self.running = true;
@@ -133,7 +139,7 @@ impl Simulation {
     }
 
     #[must_use]
-    pub fn requests(&self) -> &[alloc::rc::Rc<std::cell::RefCell<Request>>] {
+    pub fn requests(&self) -> &[Rc<RefCell<Request>>] {
         self.request_queue.requests()
     }
 }
@@ -244,9 +250,7 @@ mod tests {
     const TICK_SIZE: Duration = Duration::new(0, 50_000_000);
     const ONE_HOUR: Duration = Duration::new(60 * 60, 0);
 
-    fn request_stats(
-        requests: &[alloc::rc::Rc<std::cell::RefCell<Request>>],
-    ) -> HashMap<Status, usize> {
+    fn request_stats(requests: &[Rc<RefCell<Request>>]) -> HashMap<Status, usize> {
         requests.iter().fold(HashMap::new(), |mut acc, r| {
             let status = *r.borrow().status();
             if let Some(v) = acc.get_mut(&status) {

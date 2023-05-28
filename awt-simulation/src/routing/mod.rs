@@ -1,6 +1,8 @@
 mod request_data;
 mod server_data;
 
+use alloc::vec::Vec;
+
 pub(crate) use request_data::RequestData;
 pub(crate) use server_data::ServerData;
 
@@ -9,7 +11,7 @@ pub(crate) fn route_requests(
     requests: Vec<&RequestData>,
     mut servers: Vec<&ServerData>,
 ) -> Vec<(usize, usize)> {
-    let mut routes = vec![];
+    let mut routes = Vec::new();
 
     for request in requests {
         if let Some(server) = servers.pop() {

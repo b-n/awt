@@ -1,4 +1,4 @@
-use alloc::boxed::Box;
+use alloc::{boxed::Box, vec::Vec};
 use core::time::Duration;
 use rand::RngCore;
 
@@ -32,8 +32,8 @@ impl Config {
         Self {
             end,
             tick_size,
-            clients: vec![],
-            servers: vec![],
+            clients: Vec::new(),
+            servers: Vec::new(),
             rng,
         }
     }

@@ -1,8 +1,9 @@
 pub(crate) mod queue;
 
+use alloc::vec::Vec;
 use core::cmp::Ordering;
+use core::sync::{atomic, atomic::AtomicUsize};
 use core::time::Duration;
-use std::sync::{atomic, atomic::AtomicUsize};
 
 use super::{Attribute, Client};
 
@@ -209,7 +210,7 @@ mod tests {
         let handle_ticks = HANDLE_TICKS;
 
         (
-            Request::new(start, abandon_ticks, handle_ticks, vec![], &client),
+            Request::new(start, abandon_ticks, handle_ticks, Vec::new(), &client),
             abandon_ticks,
         )
     }
