@@ -1,41 +1,40 @@
 use alloc::boxed::Box;
 use core::time::Duration;
-use rand::{rngs::SmallRng, thread_rng, RngCore, SeedableRng};
+use rand::RngCore;
 
 use crate::client::Client;
 use crate::server::Server;
+use crate::Simulation;
 
-#[derive(Clone, Debug)]
 pub struct Config {
     pub(crate) end: Duration,
     pub(crate) tick_size: Duration,
     pub(crate) clients: Vec<Client>,
     pub(crate) servers: Vec<Server>,
-    /// If None provided, the use thread_rng() to generate a seed
-    rng_seed: Option<u64>,
+    pub(crate) rng: Box<dyn RngCore>,
+}
+
+impl alloc::fmt::Debug for Config {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.debug_struct("Config")
+            .field("end", &self.end)
+            .field("tick_size", &self.tick_size)
+            .field("clients", &self.clients)
+            .field("servers", &self.servers)
+            .finish()
+    }
 }
 
 // Constructors
 impl Config {
     #[must_use]
-    pub fn new(end: Duration, tick_size: Duration) -> Self {
+    pub fn new(end: Duration, tick_size: Duration, rng: Box<dyn RngCore>) -> Self {
         Self {
             end,
             tick_size,
             clients: vec![],
             servers: vec![],
-            rng_seed: None,
-        }
-    }
-
-    #[must_use]
-    pub fn with_seed(end: Duration, tick_size: Duration, rng_seed: u64) -> Self {
-        Self {
-            end,
-            tick_size,
-            clients: vec![],
-            servers: vec![],
-            rng_seed: Some(rng_seed),
+            rng,
         }
     }
 }
@@ -50,12 +49,15 @@ impl Config {
     }
 }
 
-impl Config {
-    pub(crate) fn rng(&self) -> Box<dyn RngCore> {
-        if let Some(seed) = self.rng_seed {
-            Box::new(SmallRng::seed_from_u64(seed))
-        } else {
-            Box::new(SmallRng::from_rng(thread_rng()).unwrap())
-        }
+impl From<Config> for Simulation {
+    /// Generate a Simulation from a `Config`
+    ///
+    /// This function consumes the provided config so ensure the config is cloned before trying to
+    /// use in other simulations.
+    fn from(mut config: Config) -> Self {
+        let mut sim = Self::new(config.end, config.tick_size, config.rng);
+        sim.add_servers(config.servers);
+        sim.add_clients(&mut config.clients);
+        sim
     }
 }

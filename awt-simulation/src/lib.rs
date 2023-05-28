@@ -64,23 +64,6 @@ impl Simulation {
             rng,
         }
     }
-
-    /// Generate a Simulation from a `Config`
-    ///
-    /// This function consumes the provided config so ensure the config is cloned before trying to
-    /// use in other simulations.
-    ///
-    /// # Panics
-    ///
-    /// Will panic if no `rng_seed` supplied, and `thread_rng` fails to produce enough bytes for
-    /// seeding the RNG (very unlikely).
-    #[must_use]
-    pub fn from_config(mut config: Config) -> Self {
-        let mut sim = Self::new(config.end, config.tick_size, config.rng());
-        sim.add_servers(config.servers);
-        sim.add_clients(&mut config.clients);
-        sim
-    }
 }
 
 // Structure and setup
