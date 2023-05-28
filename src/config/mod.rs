@@ -1,8 +1,4 @@
-use awt_simulation::Config as SimulationConfig;
 use core::time::Duration;
-use rand::{rngs::SmallRng, thread_rng, SeedableRng};
-use rayon::iter::plumbing::UnindexedConsumer;
-use rayon::prelude::*;
 use serde::Deserialize;
 use std::convert::TryFrom;
 use std::fs::File;
@@ -13,11 +9,13 @@ use thiserror::Error;
 mod attribute;
 mod client;
 mod metric;
+mod parsed;
 mod server;
 
 use attribute::Attribute;
 use client::Client;
 use metric::Metric;
+pub use parsed::Parsed;
 use server::Server;
 
 #[derive(Default, Clone, Deserialize, Debug)]
@@ -67,68 +65,7 @@ impl TryFrom<&PathBuf> for Config {
 }
 
 impl Config {
-    pub fn get(&self, i: usize) -> SimulationConfig {
-        let rng: Box<SmallRng> = if let Some(seeds) = &self.rng_seeds {
-            let seed = seeds.get(i).expect("oof");
-            Box::new(SmallRng::seed_from_u64(*seed))
-        } else {
-            Box::new(SmallRng::from_rng(thread_rng()).unwrap())
-        };
-
-        let mut simulation_config = SimulationConfig::new(self.tick_until, self.tick_size, rng);
-        for client in self.clients() {
-            simulation_config.add_client(client);
-        }
-        for server in self.servers() {
-            simulation_config.add_server(server);
-        }
-
-        simulation_config
-    }
-}
-
-impl ParallelIterator for Config {
-    type Item = (usize, Self);
-
-    fn drive_unindexed<C>(self, consumer: C) -> C::Result
-    where
-        C: UnindexedConsumer<Self::Item>,
-    {
-        (0..self.simulations)
-            .into_par_iter()
-            .map(|sim| (sim, self.clone()))
-            .drive_unindexed(consumer)
-    }
-}
-
-impl Config {
-    pub fn clients(&self) -> Vec<awt_simulation::client::Client> {
-        self.clients
-            .iter()
-            .flat_map(|client_config| {
-                (0..client_config.quantity)
-                    .map(|_| crate::Client::from(client_config))
-                    .collect::<Vec<crate::Client>>()
-            })
-            .collect()
-    }
-
-    pub fn servers(&self) -> Vec<awt_simulation::server::Server> {
-        self.servers
-            .iter()
-            .flat_map(|server_config| {
-                (0..server_config.quantity)
-                    .map(|_| crate::Server::from(server_config))
-                    .collect::<Vec<crate::Server>>()
-            })
-            .collect()
-    }
-
-    pub fn metrics(&self) -> Result<Vec<awt_metrics::Metric>, ConfigError> {
-        self.metrics
-            .iter()
-            .map(crate::Metric::try_from)
-            .collect::<Result<Vec<crate::Metric>, metric::MetricError>>()
-            .map_err(ConfigError::Metric)
+    pub fn parsed(self) -> Result<Parsed, ConfigError> {
+        Parsed::try_from(self)
     }
 }

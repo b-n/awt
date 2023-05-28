@@ -96,7 +96,7 @@ fn try_main() -> Result<(), Box<dyn std::error::Error>> {
     simple_logger::init_with_level(log_level)?;
 
     let config_path = args.config_path.unwrap();
-    let config = Config::try_from(&config_path)?;
+    let config = Config::try_from(&config_path)?.parsed()?;
 
     // We want to pin some cores, but not all the cores
     let sim_threads = available_parallelism()?.get() - 1;
@@ -108,7 +108,7 @@ fn try_main() -> Result<(), Box<dyn std::error::Error>> {
     debug!(target: "main", "setting rayon to use {sim_threads} threads");
 
     trace!(target: "main", "config: {config:?}");
-    let metrics = config.metrics()?;
+    let metrics = config.metrics();
 
     config
         .into_par_iter()
