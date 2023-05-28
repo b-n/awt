@@ -61,7 +61,7 @@ fn run_sim(
     config: SimulationConfig,
     metrics: &[Metric],
 ) -> Result<(), SimulationError> {
-    let mut sim = Simulation::from_config(config);
+    let mut sim = Simulation::from(config);
     info!(target: "main", "sim {counter}: created");
 
     sim.enable()?;
@@ -107,20 +107,16 @@ fn try_main() -> Result<(), Box<dyn std::error::Error>> {
         .build_global()?;
     debug!(target: "main", "setting rayon to use {sim_threads} threads");
 
-    // Retrieve all the required values from the config prior to starting the simulation run('s)
-    let simulations = config.simulations;
-    let simulation_config = config.simulation_config();
-    trace!(target: "main", "config: {simulation_config:?}");
-
+    trace!(target: "main", "config: {config:?}");
     let metrics = config.metrics()?;
 
-    (0..simulations)
+    config
         .into_par_iter()
-        .map(|sim| {
+        .map(|(index, config)| {
             // Simulation config is cloned for each run since these are consumed by each simulation
             // which is done to ensure data encapsulation. Trade off is memory footprint, which is
             // rather small for these sims.
-            run_sim(sim, simulation_config.clone(), &metrics)
+            run_sim(index, config.get(index), &metrics)
         })
         .collect::<Result<Vec<()>, SimulationError>>()?;
 

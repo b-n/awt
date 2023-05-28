@@ -1,5 +1,8 @@
 use awt_simulation::Config as SimulationConfig;
 use core::time::Duration;
+use rand::{rngs::SmallRng, thread_rng, SeedableRng};
+use rayon::iter::plumbing::UnindexedConsumer;
+use rayon::prelude::*;
 use serde::Deserialize;
 use std::convert::TryFrom;
 use std::fs::File;
@@ -15,7 +18,7 @@ use client::Client;
 use metric::Metric;
 use server::Server;
 
-#[derive(Deserialize)]
+#[derive(Default, Clone, Deserialize, Debug)]
 pub struct Config {
     clients: Vec<Client>,
     servers: Vec<Server>,
@@ -24,6 +27,7 @@ pub struct Config {
     pub simulations: usize,
     pub tick_size: Duration,
     pub tick_until: Duration,
+    pub rng_seeds: Option<Vec<u64>>,
 }
 
 #[allow(clippy::module_name_repetitions)]
@@ -35,6 +39,8 @@ pub enum ConfigError {
     Deserialization(#[from] toml::de::Error),
     #[error("Metric: {0}")]
     Metric(metric::MetricError),
+    #[error("There should be as many rng_seeds as simulations")]
+    BadSeeds,
 }
 
 impl TryFrom<&PathBuf> for Config {
@@ -46,20 +52,50 @@ impl TryFrom<&PathBuf> for Config {
 
         file.read_to_string(&mut toml)?;
 
-        Ok(toml::from_str::<Config>(&toml)?)
+        let config = toml::from_str::<Config>(&toml)?;
+
+        if let Some(seeds) = &config.rng_seeds {
+            if seeds.len() != config.simulations {
+                return Err(Self::Error::BadSeeds);
+            }
+        }
+
+        Ok(config)
     }
 }
 
 impl Config {
-    pub fn simulation_config(&self) -> SimulationConfig {
-        let mut simulation_config = SimulationConfig::new(self.tick_until, self.tick_size);
+    pub fn get(&self, i: usize) -> SimulationConfig {
+        let rng: Box<SmallRng> = if let Some(seeds) = &self.rng_seeds {
+            let seed = seeds.get(i).expect("oof");
+            Box::new(SmallRng::seed_from_u64(*seed))
+        } else {
+            Box::new(SmallRng::from_rng(thread_rng()).unwrap())
+        };
+
+        let mut simulation_config = SimulationConfig::new(self.tick_until, self.tick_size, rng);
         for client in self.clients() {
             simulation_config.add_client(client);
         }
         for server in self.servers() {
             simulation_config.add_server(server);
         }
+
         simulation_config
+    }
+}
+
+impl ParallelIterator for Config {
+    type Item = (usize, Self);
+
+    fn drive_unindexed<C>(self, consumer: C) -> C::Result
+    where
+        C: UnindexedConsumer<Self::Item>,
+    {
+        (0..self.simulations)
+            .into_par_iter()
+            .map(|sim| (sim, self.clone()))
+            .drive_unindexed(consumer)
     }
 }
 
