@@ -77,12 +77,8 @@ impl Parsed {
         let rng = Box::new(SmallRng::seed_from_u64(*seed));
 
         let mut simulation_config = SimulationConfig::new(self.tick_until, self.tick_size, rng);
-        for client in self.clients {
-            simulation_config.add_client(client);
-        }
-        for server in self.servers {
-            simulation_config.add_server(server);
-        }
+        simulation_config.set_clients(self.clients);
+        simulation_config.set_servers(self.servers);
 
         simulation_config
     }

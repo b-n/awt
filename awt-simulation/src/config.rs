@@ -44,8 +44,16 @@ impl Config {
         self.clients.push(client);
     }
 
+    pub fn set_clients(&mut self, clients: Vec<Client>) {
+        self.clients = clients;
+    }
+
     pub fn add_server(&mut self, server: Server) {
         self.servers.push(server);
+    }
+
+    pub fn set_servers(&mut self, servers: Vec<Server>) {
+        self.servers = servers;
     }
 }
 
