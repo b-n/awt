@@ -38,6 +38,6 @@ rayon = "1.7"
 serde = { version = "1.0", features = ['derive'] }
 simple_logger = "4.1.0"
 thiserror = "1.0"
-toml = "0.4"
+toml = "0.7"
 awt-simulation = { version = "0.1", path = "awt-simulation" }
 awt-metrics = { version = "0.1", path = "awt-metrics" }
