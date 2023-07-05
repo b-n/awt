@@ -15,6 +15,7 @@ updates:
       - dependency-type: "all"
     groups:
       cargo-deps:
-        patterns: "*"
+        patterns:
+          - "*"
     assignees:
       - b-n
