@@ -28,10 +28,7 @@ impl TryFrom<super::Config> for Parsed {
             seeds.clone()
         } else {
             let mut rng = thread_rng();
-            (0..config.simulations)
-                .into_iter()
-                .map(|_| rng.gen())
-                .collect()
+            (0..config.simulations).map(|_| rng.gen()).collect()
         };
 
         let parsed = Parsed {
