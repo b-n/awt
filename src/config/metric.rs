@@ -66,7 +66,9 @@ impl TryFrom<&Metric> for SimMetric {
     fn try_from(metric: &Metric) -> Result<Self, Self::Error> {
         match metric.metric {
             MetricType::ServiceLevel => {
-                let Some(sla) = metric.sla else { return Err(MetricError::SLARequiresWindow) };
+                let Some(sla) = metric.sla else {
+                    return Err(MetricError::SLARequiresWindow)
+                };
 
                 let target = match metric.target.clone() {
                     Some(toml::value::Value::Float(f)) if (0.0..=1.0).contains(&f) => f,
