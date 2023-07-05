@@ -13,6 +13,8 @@ updates:
       interval: monthly
     allow:
       - dependency-type: "all"
-    open-pull-requests-limit: 10
+    groups:
+      cargo-deps:
+        pattern: "*"
     assignees:
       - b-n
