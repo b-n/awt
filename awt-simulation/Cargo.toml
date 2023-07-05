@@ -20,4 +20,4 @@ rand = "0.8"
 # Syntactic sugar to make a reverse heap
 binary-heap-plus = "0.5"
 # no_std compliant HashMap (also used by rust std)
-hashbrown = "0.13"
+hashbrown = "0.14"
