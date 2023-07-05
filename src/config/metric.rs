@@ -67,7 +67,7 @@ impl TryFrom<&Metric> for SimMetric {
         match metric.metric {
             MetricType::ServiceLevel => {
                 let Some(sla) = metric.sla else {
-                    return Err(MetricError::SLARequiresWindow)
+                    return Err(MetricError::SLARequiresWindow);
                 };
 
                 let target = match metric.target.clone() {
