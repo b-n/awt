@@ -1,4 +1,5 @@
 pub(crate) mod queue;
+pub mod data;
 
 use alloc::vec::Vec;
 use core::cmp::Ordering;
@@ -6,6 +7,7 @@ use core::sync::{atomic, atomic::AtomicUsize};
 use core::time::Duration;
 
 use super::{Attribute, Client};
+pub use data::Data;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Status {
@@ -190,6 +192,16 @@ impl Request {
             self.end.map(|t| t - established)
         } else {
             None
+        }
+    }
+
+    #[must_use]
+    pub fn data(&self) -> Data {
+        Data {
+            id: self.id,
+            status: self.status().clone(),
+            wait_time: self.wait_time(),
+            handle_time: self.handle_time(),
         }
     }
 }

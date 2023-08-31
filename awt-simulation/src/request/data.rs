@@ -1,0 +1,9 @@
+use core::time::Duration;
+use crate::request::Status;
+
+pub struct Data {
+    pub id: usize,
+    pub status: Status,
+    pub wait_time: Option<Duration>,
+    pub handle_time: Option<Duration>,
+}
