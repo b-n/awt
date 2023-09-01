@@ -78,14 +78,14 @@ impl Request {
     /// for all `Client`s in this thread.
     #[must_use]
     #[inline]
-    pub fn id(&self) -> usize {
+    pub(crate) fn id(&self) -> usize {
         self.id
     }
 
     /// Returns the `start` tick of this client (when it should be enqueud).
     #[must_use]
     #[inline]
-    pub fn start(&self) -> Duration {
+    pub(crate) fn start(&self) -> Duration {
         self.start
     }
 
@@ -103,14 +103,14 @@ impl Request {
     /// Returns the `Status` of this `Client`.
     #[must_use]
     #[inline]
-    pub fn status(&self) -> &Status {
+    pub(crate) fn status(&self) -> &Status {
         &self.status
     }
 
     /// # Panics
     ///
     /// Will panic if trying to enqueue Request in the past
-    pub fn enqueue(&mut self, tick: Duration) {
+    pub(crate) fn enqueue(&mut self, tick: Duration) {
         assert!(
             tick >= self.start,
             "[REQUEST] {}. Unexpected Enqueue time. Expected: {:?}, Tried at: {:?}",
@@ -127,7 +127,7 @@ impl Request {
     /// # Panics
     ///
     /// Will panic if trying to tick before the expected start time
-    pub fn tick_wait(&mut self, tick: Duration) -> bool {
+    pub(crate) fn tick_wait(&mut self, tick: Duration) -> bool {
         if Status::Enqueued != self.status {
             return false;
         }
@@ -154,7 +154,7 @@ impl Request {
     /// # Panics
     ///
     /// Will panic if trying to handle and request was not enqueued
-    pub fn handle(&mut self, tick: Duration) -> Duration {
+    pub(crate) fn handle(&mut self, tick: Duration) -> Duration {
         assert_eq!(
             Status::Enqueued,
             self.status,
@@ -178,13 +178,13 @@ impl Request {
     }
 
     #[must_use]
-    pub fn wait_time(&self) -> Option<Duration> {
+    fn wait_time(&self) -> Option<Duration> {
         self.established.or(self.end).map(|t| t - self.start)
     }
 
     #[must_use]
     #[allow(dead_code)]
-    pub fn handle_time(&self) -> Option<Duration> {
+    fn handle_time(&self) -> Option<Duration> {
         if Status::Answered == self.status {
             let established = self
                 .established
@@ -199,7 +199,7 @@ impl Request {
     pub fn data(&self) -> Data {
         Data {
             id: self.id,
-            status: self.status().clone(),
+            status: *self.status(),
             wait_time: self.wait_time(),
             handle_time: self.handle_time(),
         }
