@@ -29,12 +29,11 @@ mod routing;
 use core::time::Duration;
 use rand::{Rng, RngCore};
 
-use alloc::{boxed::Box, rc::Rc, vec::Vec};
+use alloc::{boxed::Box, vec::Vec};
 use attribute::Attribute;
 use client::Client;
-use core::cell::RefCell;
 use error::Error;
-use request::{queue::Queue as RequestQueue, Request};
+use request::{queue::Queue as RequestQueue, Data as RequestData, Request};
 use routing::route_requests;
 use server::{queue::Queue as ServerQueue, QueueableServer, Server};
 
@@ -139,8 +138,12 @@ impl Simulation {
     }
 
     #[must_use]
-    pub fn requests(&self) -> &[Rc<RefCell<Request>>] {
-        self.request_queue.requests()
+    pub fn request_data(&self) -> Vec<RequestData> {
+        self.request_queue
+            .requests()
+            .iter()
+            .map(|request| request.borrow().data())
+            .collect()
     }
 }
 
@@ -244,6 +247,8 @@ mod tests {
     use super::*;
 
     use crate::request::Status;
+    use alloc::rc::Rc;
+    use core::cell::RefCell;
     use rand::rngs::mock::StepRng;
     use std::collections::HashMap;
 
@@ -281,7 +286,7 @@ mod tests {
 
         while sim.tick() {}
 
-        let stats = request_stats(sim.requests());
+        let stats = request_stats(sim.request_queue.requests());
         assert_eq!(None, stats.get(&Status::Answered));
         assert_eq!(None, stats.get(&Status::Abandoned));
         Ok(assert_eq!((false, ONE_HOUR), sim.running()))
@@ -298,7 +303,7 @@ mod tests {
 
         while sim.tick() {}
 
-        let stats = request_stats(sim.requests());
+        let stats = request_stats(sim.request_queue.requests());
         assert_eq!(None, stats.get(&Status::Answered));
         assert_eq!(Some(&1), stats.get(&Status::Abandoned));
         Ok(assert_eq!((false, ONE_HOUR), sim.running()))
@@ -318,7 +323,7 @@ mod tests {
 
         while sim.tick() {}
 
-        let stats = request_stats(sim.requests());
+        let stats = request_stats(sim.request_queue.requests());
         assert_eq!(Some(&1), stats.get(&Status::Answered));
         assert_eq!(None, stats.get(&Status::Abandoned));
         Ok(assert_eq!((false, ONE_HOUR), sim.running()))
@@ -343,7 +348,7 @@ mod tests {
 
         while sim.tick() {}
 
-        let stats = request_stats(sim.requests());
+        let stats = request_stats(sim.request_queue.requests());
         assert_eq!(Some(&1), stats.get(&Status::Answered));
         assert_eq!(Some(&1), stats.get(&Status::Abandoned));
         Ok(assert_eq!((false, ONE_HOUR), sim.running()))

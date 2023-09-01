@@ -71,7 +71,7 @@ fn run_sim(
     info!(target: "main", "sim {counter}: finished ticking");
 
     let mut stats = Aggregator::with_metrics(metrics);
-    stats.calculate(sim.requests());
+    stats.calculate(&sim.request_data());
 
     println!("Sim {counter} {:?}\n{}", sim.running(), stats);
     Ok(())

@@ -15,9 +15,15 @@ extern crate alloc;
 use core::time::Duration;
 use core::{fmt, fmt::Display, fmt::Formatter};
 
+use awt_simulation::request::{Data as RequestData, Status};
+
 mod aggregator;
+mod target;
+mod value;
 
 pub use aggregator::Aggregator;
+pub use target::{Target, TargetCondition};
+use value::Value;
 
 /// Enumerates a metric to trace on a `Request`.
 #[allow(clippy::module_name_repetitions)]
@@ -43,156 +49,16 @@ pub enum MetricType {
 }
 
 #[derive(Clone, Debug)]
-pub enum Aggregate {
-    Meanable(Meanable),
-    Countable(Countable),
-    Percentable(Percentable),
-}
-
-impl Display for Aggregate {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::Meanable(a) => write!(f, "{a}"),
-            Self::Countable(a) => write!(f, "{a}"),
-            Self::Percentable(a) => write!(f, "{a}"),
-        }
-    }
-}
-
-// Meanable are metrics which we count a total of ticks for, and we want the average of those values
-// Report: Just provide a value. a usize report_usize(value: usize)
-#[derive(Clone, Debug)]
-pub struct Meanable {
-    sum: Duration,
-    count: u32,
-    target: Duration,
-}
-
-impl Display for Meanable {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        if self.count == 0 {
-            return write!(f, "None");
-        }
-
-        write!(f, "{:?}", self.sum / self.count)
-    }
-}
-
-impl Meanable {
-    pub fn report_duration(&mut self, value: Duration) {
-        self.sum += value;
-        self.count += 1;
-    }
-
-    #[must_use]
-    pub fn with_target(target: Duration) -> Self {
-        Self {
-            sum: Duration::ZERO,
-            count: 0,
-            target,
-        }
-    }
-
-    #[must_use]
-    pub fn on_target(&self) -> bool {
-        match self.count {
-            0 => false,
-            _ => self.target < (self.sum / self.count),
-        }
-    }
-}
-
-// Countable are metrics which we only want to count. e.g we have X requests
-// Report: Just report()
-#[derive(Clone, Debug)]
-pub struct Countable {
-    count: usize,
-    target: usize,
-}
-
-impl Display for Countable {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.count)
-    }
-}
-
-impl Countable {
-    pub fn report(&mut self) {
-        self.count += 1;
-    }
-
-    #[must_use]
-    pub fn with_target(target: usize) -> Self {
-        Self { count: 0, target }
-    }
-
-    #[must_use]
-    pub fn on_target(&self) -> bool {
-        match self.count {
-            0 => false,
-            _ => self.target < self.count,
-        }
-    }
-}
-
-// Percentable is a count of matching values against a total available
-// Report: Position and negative. e.g. Things that in bounds, and things that
-//         out of bounds
-//         report_bool(value: bool)
-#[derive(Clone, Debug)]
-pub struct Percentable {
-    sum: usize,
-    count: usize,
-    target: f64,
-}
-
-impl Display for Percentable {
-    #[allow(clippy::cast_precision_loss)]
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        if self.count == 0 {
-            return write!(f, "None");
-        }
-
-        write!(f, "{}", self.sum as f64 / self.count as f64)
-    }
-}
-
-impl Percentable {
-    pub fn report_bool(&mut self, value: bool) {
-        if value {
-            self.sum += 1;
-        }
-        self.count += 1;
-    }
-
-    #[must_use]
-    pub fn with_target(target: f64) -> Self {
-        Self {
-            sum: 0,
-            count: 0,
-            target,
-        }
-    }
-
-    #[must_use]
-    #[allow(clippy::cast_precision_loss)]
-    pub fn on_target(&self) -> bool {
-        match self.count {
-            0 => false,
-            _ => self.target < (self.sum as f64 / self.count as f64),
-        }
-    }
-}
-
-#[derive(Clone, Debug)]
 pub struct Metric {
     metric_type: MetricType,
-    aggregate: Aggregate,
+    value: Value,
+    target: Target,
+    target_condition: TargetCondition,
 }
 
 impl Display for Metric {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.aggregate)
+        write!(f, "{}", self.value)
     }
 }
 
@@ -202,70 +68,67 @@ pub struct MetricError {}
 
 // Structure and setup
 impl Metric {
-    /// Create a `Metric` that has a target based on `Duration`. Supported metrics:
+    /// Create a `Metric` with the provided Target. Metrics require a specific type of target,
+    /// otherwise it will Error. The supported target to metric types are:
+    ///
+    /// `Target::MeanDuration`:
     ///
     /// - `MetricType::AverageWorkTime`
     /// - `MetricType::AverageSpeedAnswer`
     /// - `MetricType::AverageTimeInQueue`
     /// - `MetricType::AverageTimeToAbandon`
     ///
-    /// # Errors
+    /// `Target::Percent`:
     ///
-    /// Will error if not using one of the above metrics
-    #[allow(clippy::match_wildcard_for_single_variants)]
-    pub fn with_target_duration(
-        metric_type: MetricType,
-        target: Duration,
-    ) -> Result<Self, MetricError> {
-        match metric_type {
-            MetricType::AverageWorkTime
-            | MetricType::AverageSpeedAnswer
-            | MetricType::AverageTimeInQueue
-            | MetricType::AverageTimeToAbandon => Ok(Self {
-                metric_type,
-                aggregate: Aggregate::Meanable(Meanable::with_target(target)),
-            }),
-            _ => Err(MetricError {}),
-        }
-    }
-
-    /// Create a `Metric` that has a target based on `f64`. Supported metrics:
-    ///
-    /// - `MetricType::ServiceLevel(Duration)`
+    /// - `MetricType::UtilisationTime`
+    /// - `MetricType::ServiceLevel(_)`
     /// - `MetricType::AbandonRate`
     ///
-    /// In the future this will also support `MetricType::UtilisationTime`
-    ///
-    /// # Errors
-    ///
-    /// Will error if not using one of the above metrics
-    #[allow(clippy::match_wildcard_for_single_variants)]
-    pub fn with_target_f64(metric_type: MetricType, target: f64) -> Result<Self, MetricError> {
-        match metric_type {
-            MetricType::UtilisationTime | MetricType::ServiceLevel(_) | MetricType::AbandonRate => {
-                Ok(Self {
-                    metric_type,
-                    aggregate: Aggregate::Percentable(Percentable::with_target(target)),
-                })
-            }
-            _ => Err(MetricError {}),
-        }
-    }
-
-    /// Create a `Metric` that has a target based on `usize`. Supported metrics:
+    /// `Target::Count`:
     ///
     /// - `MetricType::AnswerCount`
     ///
     /// # Errors
     ///
-    /// Will error if not using one of the above metrics
-    pub fn with_target_usize(metric_type: MetricType, target: usize) -> Result<Self, MetricError> {
-        match metric_type {
-            MetricType::AnswerCount => Ok(Self {
+    /// Will error if not using the correct target mapping
+    pub fn with_target(metric_type: MetricType, target: Target) -> Result<Self, MetricError> {
+        match (metric_type, target.clone()) {
+            (
+                MetricType::AverageWorkTime
+                | MetricType::AverageSpeedAnswer
+                | MetricType::AverageTimeInQueue
+                | MetricType::AverageTimeToAbandon,
+                Target::MeanDuration(_),
+            ) => Ok(Self {
                 metric_type,
-                aggregate: Aggregate::Countable(Countable::with_target(target)),
+                value: Value::default_mean_duration(),
+                target,
+                target_condition: TargetCondition::LessOrEqual,
             }),
-            _ => Err(MetricError {}),
+            (MetricType::UtilisationTime | MetricType::ServiceLevel(_), Target::Percent(_)) => {
+                Ok(Self {
+                    metric_type,
+                    value: Value::default_percent(),
+                    target,
+                    target_condition: TargetCondition::GreaterOrEqual,
+                })
+            }
+            (MetricType::AbandonRate, Target::Percent(_)) => Ok(Self {
+                metric_type,
+                value: Value::default_percent(),
+                target,
+                target_condition: TargetCondition::LessOrEqual,
+            }),
+
+            (_, Target::Percent(_)) => Err(MetricError {}),
+            (MetricType::AnswerCount, Target::Count(_)) => Ok(Self {
+                metric_type,
+                value: Value::default_count(),
+                target,
+                target_condition: TargetCondition::Equal,
+            }),
+            (_, Target::Count(_)) => Err(MetricError {}),
+            _ => unreachable!(),
         }
     }
 
@@ -276,49 +139,54 @@ impl Metric {
 
     #[must_use]
     pub fn on_target(&self) -> bool {
-        match &self.aggregate {
-            Aggregate::Meanable(a) => a.on_target(),
-            Aggregate::Percentable(a) => a.on_target(),
-            Aggregate::Countable(a) => a.on_target(),
+        if let TargetCondition::Equal = self.target_condition {
+            return self.value == self.target;
         }
+
+        true
     }
 }
 
 // Reporting functions
 impl Metric {
-    /// Report a valuye for Metrics that support `Aggregate::Countable`
+    /// Report a value for this metric
     ///
     /// # Panics
     ///
     /// Will panic if attempt to report for other aggregate types
-    pub fn report(&mut self) {
-        match &mut self.aggregate {
-            Aggregate::Countable(a) => a.report(),
-            _ => todo!(),
-        }
-    }
-
-    /// Report a valuye for Metrics that support `Aggregate::Countable`
-    ///
-    /// # Panics
-    ///
-    /// Will panic if attempt to report for other aggregate types
-    pub fn report_bool(&mut self, value: bool) {
-        match &mut self.aggregate {
-            Aggregate::Percentable(a) => a.report_bool(value),
-            _ => todo!(),
-        }
-    }
-
-    /// Report a valuye for Metrics that support `Aggregate::Countable`
-    ///
-    /// # Panics
-    ///
-    /// Will panic if attempt to report for other aggregate types
-    pub fn report_duration(&mut self, value: Duration) {
-        match &mut self.aggregate {
-            Aggregate::Meanable(a) => a.report_duration(value),
-            _ => todo!(),
+    pub fn report(&mut self, r: &RequestData) {
+        match (self.metric_type, r.status, &mut self.value) {
+            (MetricType::ServiceLevel(ticks), Status::Answered, Value::Percent(m)) => {
+                if let Some(tick) = r.wait_time {
+                    m.report(tick <= ticks);
+                }
+            }
+            (MetricType::AverageWorkTime, Status::Answered, Value::MeanDuration(m)) => {
+                if let Some(tick) = r.handle_time {
+                    m.report(tick);
+                }
+            }
+            (MetricType::AverageSpeedAnswer, Status::Answered, Value::MeanDuration(m)) => {
+                if let Some(tick) = r.wait_time {
+                    m.report(tick);
+                }
+            }
+            (MetricType::AverageTimeToAbandon, Status::Abandoned, Value::MeanDuration(m)) => {
+                if let Some(tick) = r.wait_time {
+                    m.report(tick);
+                }
+            }
+            (MetricType::AbandonRate, _, Value::Percent(m)) => {
+                m.report(Status::Abandoned == r.status)
+            }
+            (MetricType::AverageTimeInQueue, _, Value::MeanDuration(m)) => {
+                if let Some(tick) = r.wait_time {
+                    m.report(tick);
+                }
+            }
+            (MetricType::AnswerCount, Status::Answered, Value::Count(m)) => m.report(),
+            (MetricType::UtilisationTime, _, _) => todo!(),
+            _ => (),
         }
     }
 }

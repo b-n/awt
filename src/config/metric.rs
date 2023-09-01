@@ -6,6 +6,7 @@ use toml::Value;
 
 use awt_metrics::{
     Metric as SimMetric, MetricError as SimMetricError, MetricType as SimMetricType,
+    Target as SimTarget,
 };
 
 #[allow(clippy::module_name_repetitions)]
@@ -81,9 +82,9 @@ impl TryFrom<&Metric> for SimMetric {
                     None => return Err(MetricError::TargetRequired(metric.metric)),
                 };
 
-                Ok(Self::with_target_f64(
+                Ok(Self::with_target(
                     SimMetricType::ServiceLevel(sla),
-                    target,
+                    SimTarget::percent(target),
                 )?)
             }
             MetricType::AverageWorkTime => {
@@ -93,9 +94,9 @@ impl TryFrom<&Metric> for SimMetric {
                     Err(MetricError::TargetRequired(metric.metric))?
                 };
 
-                Ok(Self::with_target_duration(
+                Ok(Self::with_target(
                     SimMetricType::AverageWorkTime,
-                    target,
+                    SimTarget::mean_duration(target),
                 )?)
             }
             MetricType::AverageSpeedAnswer => {
@@ -105,9 +106,9 @@ impl TryFrom<&Metric> for SimMetric {
                     Err(MetricError::TargetRequired(metric.metric))?
                 };
 
-                Ok(Self::with_target_duration(
+                Ok(Self::with_target(
                     SimMetricType::AverageSpeedAnswer,
-                    target,
+                    SimTarget::mean_duration(target),
                 )?)
             }
             MetricType::AverageTimeToAbandon => {
@@ -117,9 +118,9 @@ impl TryFrom<&Metric> for SimMetric {
                     Err(MetricError::TargetRequired(metric.metric))?
                 };
 
-                Ok(Self::with_target_duration(
+                Ok(Self::with_target(
                     SimMetricType::AverageTimeToAbandon,
-                    target,
+                    SimTarget::mean_duration(target),
                 )?)
             }
             MetricType::AverageTimeInQueue => {
@@ -129,9 +130,9 @@ impl TryFrom<&Metric> for SimMetric {
                     Err(MetricError::TargetRequired(metric.metric))?
                 };
 
-                Ok(Self::with_target_duration(
+                Ok(Self::with_target(
                     SimMetricType::AverageTimeInQueue,
-                    target,
+                    SimTarget::mean_duration(target),
                 )?)
             }
             MetricType::AbandonRate => {
@@ -141,7 +142,10 @@ impl TryFrom<&Metric> for SimMetric {
                     Err(MetricError::TargetRequired(metric.metric))?
                 };
 
-                Ok(Self::with_target_f64(SimMetricType::AbandonRate, target)?)
+                Ok(Self::with_target(
+                    SimMetricType::AbandonRate,
+                    SimTarget::percent(target),
+                )?)
             }
             MetricType::AnswerCount => {
                 let target: usize = if let Some(value) = metric.target.clone() {
@@ -150,7 +154,10 @@ impl TryFrom<&Metric> for SimMetric {
                     Err(MetricError::TargetRequired(metric.metric))?
                 };
 
-                Ok(Self::with_target_usize(SimMetricType::AnswerCount, target)?)
+                Ok(Self::with_target(
+                    SimMetricType::AnswerCount,
+                    SimTarget::count(target),
+                )?)
             }
 
             MetricType::UtilisationTime => Err(MetricError::NotYetImplemented),
