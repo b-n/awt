@@ -91,6 +91,7 @@ impl Metric {
     /// # Errors
     ///
     /// Will error if not using the correct target mapping
+    #[allow(clippy::match_same_arms)]
     pub fn with_target(metric_type: MetricType, target: Target) -> Result<Self, MetricError> {
         match (metric_type, target.clone()) {
             (
@@ -120,15 +121,15 @@ impl Metric {
                 target_condition: TargetCondition::LessOrEqual,
             }),
 
-            (_, Target::Percent(_)) => Err(MetricError {}),
             (MetricType::AnswerCount, Target::Count(_)) => Ok(Self {
                 metric_type,
                 value: Value::default_count(),
                 target,
                 target_condition: TargetCondition::Equal,
             }),
-            (_, Target::Count(_)) => Err(MetricError {}),
-            _ => unreachable!(),
+            (_, Target::MeanDuration(_) | Target::Percent(_) | Target::Count(_)) => {
+                Err(MetricError {})
+            }
         }
     }
 
@@ -154,6 +155,7 @@ impl Metric {
     /// # Panics
     ///
     /// Will panic if attempt to report for other aggregate types
+    #[allow(clippy::match_same_arms)]
     pub fn report(&mut self, r: &RequestData) {
         match (self.metric_type, r.status, &mut self.value) {
             (MetricType::ServiceLevel(ticks), Status::Answered, Value::Percent(m)) => {
@@ -177,7 +179,7 @@ impl Metric {
                 }
             }
             (MetricType::AbandonRate, _, Value::Percent(m)) => {
-                m.report(Status::Abandoned == r.status)
+                m.report(Status::Abandoned == r.status);
             }
             (MetricType::AverageTimeInQueue, _, Value::MeanDuration(m)) => {
                 if let Some(tick) = r.wait_time {

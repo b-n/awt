@@ -1,5 +1,5 @@
-pub(crate) mod queue;
 pub mod data;
+pub(crate) mod queue;
 
 use alloc::vec::Vec;
 use core::cmp::Ordering;

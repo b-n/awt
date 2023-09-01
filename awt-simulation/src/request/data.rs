@@ -1,5 +1,5 @@
-use core::time::Duration;
 use crate::request::Status;
+use core::time::Duration;
 
 pub struct Data {
     pub id: usize,
