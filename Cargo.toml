@@ -30,7 +30,7 @@ repository = "https://github.com/b-n/awt"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-clap = { version = "4.3", features = ['derive'] }
+clap = { version = "4.4", features = ['derive'] }
 exitcode = "1.1"
 log = "0.4"
 rand = { version = "0.8.5", features = ['small_rng'] }
