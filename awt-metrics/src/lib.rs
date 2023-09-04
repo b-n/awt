@@ -104,7 +104,7 @@ impl Metric {
                 metric_type,
                 value: Value::default_mean_duration(),
                 target,
-                target_condition: TargetCondition::LessOrEqual,
+                target_condition: TargetCondition::LesserOrEqual,
             }),
             (MetricType::UtilisationTime | MetricType::ServiceLevel(_), Target::Percent(_)) => {
                 Ok(Self {
@@ -118,7 +118,7 @@ impl Metric {
                 metric_type,
                 value: Value::default_percent(),
                 target,
-                target_condition: TargetCondition::LessOrEqual,
+                target_condition: TargetCondition::LesserOrEqual,
             }),
 
             (MetricType::AnswerCount, Target::Count(_)) => Ok(Self {
@@ -140,11 +140,12 @@ impl Metric {
 
     #[must_use]
     pub fn on_target(&self) -> bool {
-        if let TargetCondition::Equal = self.target_condition {
-            return self.value == self.target;
+        match self.target_condition {
+            TargetCondition::Equal if self.value == self.target => true,
+            TargetCondition::LesserOrEqual if self.value <= self.target => true,
+            TargetCondition::GreaterOrEqual if self.value >= self.target => true,
+            _ => false,
         }
-
-        true
     }
 }
 
