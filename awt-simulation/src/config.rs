@@ -21,7 +21,7 @@ impl alloc::fmt::Debug for Config {
             .field("tick_size", &self.tick_size)
             .field("clients", &self.clients)
             .field("servers", &self.servers)
-            .finish()
+            .finish_non_exhaustive()
     }
 }
 
