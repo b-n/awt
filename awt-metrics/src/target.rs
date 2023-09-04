@@ -5,7 +5,7 @@ use crate::value::{Count, MeanDuration, Percent, Value};
 #[allow(clippy::module_name_repetitions)]
 #[derive(Clone, Debug)]
 pub enum TargetCondition {
-    LessOrEqual,
+    LesserOrEqual,
     GreaterOrEqual,
     Equal,
 }
