@@ -6,13 +6,15 @@ use awt_simulation::request::Data as RequestData;
 
 use crate::{Metric, MetricType};
 
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct Aggregator {
     metrics: HashMap<MetricType, Metric>,
+    simulation: usize,
 }
 
 impl Display for Aggregator {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
+        writeln!(f, "Statistics for simluation_id: {}", self.simulation)?;
         for metric in self.metrics.values() {
             writeln!(
                 f,
@@ -39,7 +41,14 @@ impl Aggregator {
     #[must_use]
     pub fn with_metrics(metrics: &[Metric]) -> Self {
         let metrics = metrics.iter().map(|m| (m.metric(), m.clone())).collect();
-        Self { metrics }
+        Self {
+            metrics,
+            simulation: usize::default(),
+        }
+    }
+
+    pub fn set_simulation(&mut self, id: usize) {
+        self.simulation = id;
     }
 
     pub fn clean(&mut self) {}
