@@ -48,7 +48,7 @@ mod args;
 mod config;
 
 use args::{log_level, Args};
-use awt_metrics::{Aggregator, Metric};
+use awt_metrics::Aggregator;
 use awt_simulation::{
     attribute::Attribute, client::Client, error::Error as SimulationError, server::Server,
     Config as SimulationConfig, Simulation,
@@ -56,11 +56,7 @@ use awt_simulation::{
 
 use config::Config;
 
-fn run_sim(
-    counter: usize,
-    config: SimulationConfig,
-    metrics: &[Metric],
-) -> Result<(), SimulationError> {
+fn run_sim(counter: usize, config: SimulationConfig) -> Result<Simulation, SimulationError> {
     let mut sim = Simulation::from(config);
     info!(target: "main", "sim {counter}: created");
 
@@ -70,11 +66,7 @@ fn run_sim(
     while sim.tick() {}
     info!(target: "main", "sim {counter}: finished ticking");
 
-    let mut stats = Aggregator::with_metrics(metrics);
-    stats.calculate(&sim.request_data());
-
-    println!("Sim {counter} {:?}\n{}", sim.running(), stats);
-    Ok(())
+    Ok(sim)
 }
 
 fn main() {
@@ -108,17 +100,26 @@ fn try_main() -> Result<(), Box<dyn std::error::Error>> {
     debug!(target: "main", "setting rayon to use {sim_threads} threads");
 
     trace!(target: "main", "config: {config:?}");
-    let metrics = config.metrics();
+    let metrics_aggregator = Aggregator::with_metrics(&config.metrics());
 
-    config
+    let stats = config
         .into_par_iter()
         .map(|(index, config)| {
             // Simulation config is cloned for each run since these are consumed by each simulation
             // which is done to ensure data encapsulation. Trade off is memory footprint, which is
             // rather small for these sims.
-            run_sim(index, config.get(index), &metrics)
+            run_sim(index, config.new_sim(index)).map(|sim| {
+                let mut stats = metrics_aggregator.clone();
+                stats.set_simulation(index);
+                stats.calculate(&sim.request_data());
+                stats
+            })
         })
-        .collect::<Result<Vec<()>, SimulationError>>()?;
+        .collect::<Result<Vec<Aggregator>, SimulationError>>()?;
+
+    for stat in stats {
+        println!("{stat}");
+    }
 
     Ok(())
 }

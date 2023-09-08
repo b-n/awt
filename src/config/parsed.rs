@@ -68,7 +68,7 @@ impl TryFrom<super::Config> for Parsed {
 
 impl Parsed {
     /// Generates a `SimulationConfig` which can be passed into a `awt-simulation`.
-    pub fn get(self, i: usize) -> SimulationConfig {
+    pub fn new_sim(self, i: usize) -> SimulationConfig {
         // Unwrap since parsing should gaurantee the rng_seed exists
         let seed = self.rng_seeds.get(i).unwrap();
         let rng = Box::new(SmallRng::seed_from_u64(*seed));
