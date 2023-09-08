@@ -1,8 +1,10 @@
 use core::time::Duration;
 use serde::Deserialize;
 
-use super::Attribute;
-use crate::Client as SimulationClient;
+use crate::Attribute;
+use awt_simulation::{
+    attribute::Attribute as SimulationAttribute, client::Client as SimulationClient,
+};
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 pub struct Client {
@@ -23,7 +25,7 @@ impl From<&Client> for SimulationClient {
             required_attributes: c
                 .required_attributes
                 .iter()
-                .map(crate::Attribute::from)
+                .map(SimulationAttribute::from)
                 .collect(),
             handle_time: c.handle_time,
             clean_up_time: c.clean_up_time,

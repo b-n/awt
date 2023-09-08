@@ -1,0 +1,20 @@
+[package]
+name = "awt-config"
+version = "0.1.0"
+description = "TOML configuration loading for awt-simulation"
+categories = ["config"]
+keywords = ["awt", "simulation"]
+readme = "README.md"
+edition.workspace = true
+license.workspace = true
+homepage.workspace = true
+repository.workspace = true
+
+[dependencies]
+awt-simulation = { version = "0.1", path = "../awt-simulation" }
+awt-metrics = { version = "0.1", path = "../awt-metrics" }
+toml = "0.7"
+rayon = "1.7"
+serde = { version = "1.0", features = ['derive'] }
+thiserror = "1.0"
+rand = { version = "0.8.5", features = ['small_rng'] }

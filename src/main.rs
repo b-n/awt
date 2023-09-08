@@ -47,16 +47,11 @@ use log::{debug, error, info, trace};
 use rayon::prelude::*;
 
 mod args;
-mod config;
 
 use args::{log_level, Args};
+use awt_config::Config;
 use awt_metrics::Aggregator;
-use awt_simulation::{
-    attribute::Attribute, client::Client, error::Error as SimulationError, server::Server,
-    Config as SimulationConfig, Simulation,
-};
-
-use config::Config;
+use awt_simulation::{error::Error as SimulationError, Config as SimulationConfig, Simulation};
 
 fn run_sim(counter: usize, config: SimulationConfig) -> Result<Simulation, SimulationError> {
     let mut sim = Simulation::from(config);
