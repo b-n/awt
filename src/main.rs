@@ -92,8 +92,6 @@ fn try_main() -> Result<(), Box<dyn std::error::Error>> {
 
     // We want to pin some cores, but not all the cores
     let sim_threads = available_parallelism()?.get() - 1;
-
-    //Setup a fairly safe thread pool.
     rayon::ThreadPoolBuilder::new()
         .num_threads(sim_threads)
         .build_global()?;
