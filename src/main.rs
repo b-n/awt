@@ -39,10 +39,12 @@
 // Caused by hermit-abi dependency in rayon and clap
 #![allow(clippy::multiple_crate_versions)]
 
+use std::sync::mpsc::channel;
+use std::thread::available_parallelism;
+
 use clap::Parser;
 use log::{debug, error, info, trace};
 use rayon::prelude::*;
-use std::thread::available_parallelism;
 
 mod args;
 mod config;
@@ -100,9 +102,17 @@ fn try_main() -> Result<(), Box<dyn std::error::Error>> {
     trace!(target: "main", "config: {config:?}");
     let metrics_aggregator = Aggregator::with_metrics(&config.metrics());
 
+    // Setup notification channel to monitor simulations
+    let (sender, reciever) = channel::<usize>();
+    rayon::spawn(move || {
+        for simulation in reciever {
+            debug!("Simulation {simulation} complete");
+        }
+    });
+
     let stats = config
         .into_par_iter()
-        .map(|(index, config)| {
+        .map_with(&sender, |s, (index, config)| {
             // Simulation config is cloned for each run since these are consumed by each simulation
             // which is done to ensure data encapsulation. Trade off is memory footprint, which is
             // rather small for these sims.
@@ -110,10 +120,14 @@ fn try_main() -> Result<(), Box<dyn std::error::Error>> {
                 let mut stats = metrics_aggregator.clone();
                 stats.set_simulation(index);
                 stats.calculate(&sim.request_data());
+
+                // notify the channel this simulation is complete
+                s.send(index).unwrap();
                 stats
             })
         })
         .collect::<Result<Vec<Aggregator>, SimulationError>>()?;
+    drop(sender);
 
     for stat in stats {
         println!("{stat}");
