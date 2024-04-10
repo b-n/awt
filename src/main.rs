@@ -73,7 +73,7 @@ fn run_sim(counter: usize, config: SimulationConfig) -> Result<Simulation, Simul
 
 fn main() {
     match try_main() {
-        Ok(_) => {
+        Ok(()) => {
             std::process::exit(exitcode::OK);
         }
         Err(err) => {

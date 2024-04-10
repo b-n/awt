@@ -259,7 +259,7 @@ mod tests {
         assert!(!request.tick_wait(abandon_tick + ONE_MS));
     }
 
-    #[should_panic]
+    #[should_panic(expected = "Cannot tick in the past")]
     #[test]
     fn panics_ticking_in_past() {
         let (mut request, _) = enqueued_request(START_TIME);
@@ -276,17 +276,17 @@ mod tests {
         assert_eq!(Some(Duration::ZERO), request.wait_time());
     }
 
-    #[should_panic]
+    #[should_panic(expected = "Cannot tick Client when not enqueued")]
     #[test]
     fn handle_only_when_enqueued() {
-        let (mut request, _) = enqueued_request(START_TIME);
+        let (mut request, _) = default_request(START_TIME);
 
         assert_eq!(&Status::Pending, request.status());
 
         request.handle(START_TIME + (20 * ONE_MS));
     }
 
-    #[should_panic]
+    #[should_panic(expected = "Cannot tick in the past")]
     #[test]
     fn handling_only_works_in_future() {
         let (mut request, _) = enqueued_request(START_TIME);
