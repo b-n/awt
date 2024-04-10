@@ -28,6 +28,7 @@ impl core::fmt::Display for MetricType {
     }
 }
 
+#[allow(clippy::struct_field_names)]
 #[derive(Deserialize, Debug, Clone)]
 pub struct Metric {
     pub metric: MetricType,
