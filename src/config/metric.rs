@@ -73,10 +73,8 @@ impl TryFrom<&Metric> for SimMetric {
                 };
 
                 let target = match metric.target.clone() {
-                    Some(toml::value::Value::Float(f)) if (0.0..=1.0).contains(&f) => f,
-                    Some(toml::value::Value::Float(f)) => {
-                        return Err(MetricError::SLAOutsideOfTarget(f))
-                    }
+                    Some(Value::Float(f)) if (0.0..=1.0).contains(&f) => f,
+                    Some(Value::Float(f)) => return Err(MetricError::SLAOutsideOfTarget(f)),
                     Some(non_floating) => {
                         return Err(MetricError::TargetFloatingPoint(non_floating))
                     }
