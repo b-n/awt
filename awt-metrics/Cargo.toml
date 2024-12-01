@@ -11,5 +11,5 @@ homepage.workspace = true
 repository.workspace = true
 
 [dependencies]
-thiserror = "1.0"
+thiserror = "2.0"
 awt-simulation = { version = "0.1", path = "../awt-simulation" }
